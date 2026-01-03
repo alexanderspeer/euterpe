@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     setupNavigation();
     setupTimeRangeControls();
+    setupDraggableWindows();
     loadOverviewData();
 }
 
@@ -920,6 +921,164 @@ function getTimeRangeLabel(range) {
         case 'long_term': return '1 Year';
         default: return '6 Months';
     }
+}
+
+/**
+ * Setup draggable windows
+ */
+function setupDraggableWindows() {
+    const windows = document.querySelectorAll('.window');
+    
+    windows.forEach(window => {
+        const titleBar = window.querySelector('.title-bar');
+        if (!titleBar) return;
+        
+        let isDragging = false;
+        let isResizing = false;
+        let resizeDirection = '';
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+        let initialWidth;
+        let initialHeight;
+        let initialLeft;
+        let initialTop;
+        
+        // Setup dragging
+        titleBar.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+        
+        // Setup resizing for all handles
+        const resizeHandles = window.querySelectorAll('.window-resize-handle');
+        resizeHandles.forEach(handle => {
+            handle.addEventListener('mousedown', (e) => resizeStart(e, handle));
+        });
+        
+        function dragStart(e) {
+            // Don't drag if clicking on title bar control buttons
+            if (e.target.closest('.title-bar-controls button')) {
+                return;
+            }
+            
+            // Get current position
+            const rect = window.getBoundingClientRect();
+            const containerRect = window.parentElement.getBoundingClientRect();
+            xOffset = rect.left - containerRect.left;
+            yOffset = rect.top - containerRect.top;
+            
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+            
+            if (e.target === titleBar || titleBar.contains(e.target)) {
+                isDragging = true;
+                titleBar.style.cursor = 'move';
+                window.style.zIndex = '1000';
+            }
+        }
+        
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                
+                xOffset = currentX;
+                yOffset = currentY;
+                
+                setTranslate(currentX, currentY, window);
+            }
+        }
+        
+        function dragEnd(e) {
+            if (isDragging) {
+                initialX = currentX;
+                initialY = currentY;
+                isDragging = false;
+                titleBar.style.cursor = '';
+                window.style.zIndex = '1';
+            }
+        }
+        
+        function resizeStart(e, handle) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            resizeDirection = handle.className.split(' ')[1]; // Get direction (n, s, e, w, ne, nw, se, sw)
+            
+            const rect = window.getBoundingClientRect();
+            const containerRect = window.parentElement.getBoundingClientRect();
+            
+            initialX = e.clientX;
+            initialY = e.clientY;
+            initialWidth = rect.width;
+            initialHeight = rect.height;
+            initialLeft = rect.left - containerRect.left;
+            initialTop = rect.top - containerRect.top;
+            
+            isResizing = true;
+            window.style.zIndex = '1000';
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', resizeEnd);
+        }
+        
+        function resize(e) {
+            if (isResizing) {
+                e.preventDefault();
+                const deltaX = e.clientX - initialX;
+                const deltaY = e.clientY - initialY;
+                
+                const minWidth = 200;
+                const minHeight = 150;
+                
+                let newWidth = initialWidth;
+                let newHeight = initialHeight;
+                let newLeft = initialLeft;
+                let newTop = initialTop;
+                
+                // Handle different resize directions
+                if (resizeDirection.includes('e')) {
+                    newWidth = Math.max(minWidth, initialWidth + deltaX);
+                }
+                if (resizeDirection.includes('w')) {
+                    const widthChange = initialWidth - Math.max(minWidth, initialWidth - deltaX);
+                    newWidth = Math.max(minWidth, initialWidth - deltaX);
+                    newLeft = initialLeft + (initialWidth - newWidth);
+                }
+                if (resizeDirection.includes('s')) {
+                    newHeight = Math.max(minHeight, initialHeight + deltaY);
+                }
+                if (resizeDirection.includes('n')) {
+                    const heightChange = initialHeight - Math.max(minHeight, initialHeight - deltaY);
+                    newHeight = Math.max(minHeight, initialHeight - deltaY);
+                    newTop = initialTop + (initialHeight - newHeight);
+                }
+                
+                window.style.width = newWidth + 'px';
+                window.style.height = newHeight + 'px';
+                window.style.left = newLeft + 'px';
+                window.style.top = newTop + 'px';
+            }
+        }
+        
+        function resizeEnd(e) {
+            if (isResizing) {
+                isResizing = false;
+                resizeDirection = '';
+                window.style.zIndex = '1';
+                document.removeEventListener('mousemove', resize);
+                document.removeEventListener('mouseup', resizeEnd);
+            }
+        }
+        
+        function setTranslate(xPos, yPos, el) {
+            el.style.left = xPos + 'px';
+            el.style.top = yPos + 'px';
+        }
+    });
 }
 
 /**
