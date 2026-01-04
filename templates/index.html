@@ -15,23 +15,130 @@
         }
 
         .app-container {
-            display: flex;
-            gap: 16px;
-            max-width: 100%;
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .window {
+            position: absolute;
+            min-width: 200px;
+            min-height: 150px;
+            max-width: 90vw;
+            max-height: 90vh;
         }
 
         .sidebar-window {
-            width: 250px;
-            flex-shrink: 0;
+            width: 256px;
+            height: 400px;
+            top: 16px;
+            left: 16px;
+            z-index: 1;
         }
 
         .main-content-window {
-            flex: 1;
-            min-width: 0;
+            width: 467px;
+            height: 600px;
+            top: 16px;
+            left: 288px;
+            z-index: 1;
+        }
+
+        .window.dragging {
+            z-index: 1000;
+        }
+
+        .window.resizing {
+            z-index: 1000;
+        }
+
+        .title-bar {
+            cursor: move;
+            user-select: none;
+        }
+
+        .resize-handle {
+            position: absolute;
+            background: transparent;
+            z-index: 10;
+        }
+
+        .resize-handle.n {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            cursor: n-resize;
+        }
+
+        .resize-handle.s {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            cursor: s-resize;
+        }
+
+        .resize-handle.e {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 4px;
+            cursor: e-resize;
+        }
+
+        .resize-handle.w {
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 4px;
+            cursor: w-resize;
+        }
+
+        .resize-handle.ne {
+            top: 0;
+            right: 0;
+            width: 8px;
+            height: 8px;
+            cursor: ne-resize;
+        }
+
+        .resize-handle.nw {
+            top: 0;
+            left: 0;
+            width: 8px;
+            height: 8px;
+            cursor: nw-resize;
+        }
+
+        .resize-handle.se {
+            bottom: 0;
+            right: 0;
+            width: 8px;
+            height: 8px;
+            cursor: se-resize;
+        }
+
+        .resize-handle.sw {
+            bottom: 0;
+            left: 0;
+            width: 8px;
+            height: 8px;
+            cursor: sw-resize;
+        }
+
+        .window {
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
         }
 
         .window-body {
             padding: 8px;
+            overflow: auto;
+            flex: 1;
+            min-height: 0;
         }
 
         .content-section {
@@ -313,15 +420,6 @@
             margin-bottom: 8px;
         }
 
-        @media (max-width: 768px) {
-            .app-container {
-                flex-direction: column;
-            }
-
-            .sidebar-window {
-                width: 100%;
-            }
-        }
     </style>
 </head>
 <body>
@@ -336,6 +434,14 @@
                     <button aria-label="Close"></button>
                 </div>
             </div>
+            <div class="resize-handle n"></div>
+            <div class="resize-handle s"></div>
+            <div class="resize-handle e"></div>
+            <div class="resize-handle w"></div>
+            <div class="resize-handle ne"></div>
+            <div class="resize-handle nw"></div>
+            <div class="resize-handle se"></div>
+            <div class="resize-handle sw"></div>
             <div class="window-body">
                 <div style="font-weight: bold; font-size: 13px; margin-bottom: 8px;">Euterpe</div>
                 
@@ -405,6 +511,14 @@
                     <button aria-label="Close"></button>
                 </div>
             </div>
+            <div class="resize-handle n"></div>
+            <div class="resize-handle s"></div>
+            <div class="resize-handle e"></div>
+            <div class="resize-handle w"></div>
+            <div class="resize-handle ne"></div>
+            <div class="resize-handle nw"></div>
+            <div class="resize-handle se"></div>
+            <div class="resize-handle sw"></div>
             <div class="window-body">
                 <!-- Overview Section -->
                 <section id="overview" class="content-section active">

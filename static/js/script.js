@@ -2,9 +2,14 @@
 let selectedTimeRange = 'medium_term';
 let currentSection = 'overview';
 
+// Window dragging and resizing state
+let dragState = null;
+let resizeState = null;
+
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
+    initializeWindowControls();
 });
 
 /**
@@ -14,6 +19,175 @@ function initializeApp() {
     setupNavigation();
     setupTimeRangeControls();
     loadOverviewData();
+}
+
+/**
+ * Initialize window dragging and resizing
+ */
+function initializeWindowControls() {
+    const windows = document.querySelectorAll('.window');
+    
+    windows.forEach(window => {
+        // Make window draggable via title bar
+        const titleBar = window.querySelector('.title-bar');
+        if (titleBar) {
+            titleBar.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.title-bar-controls')) return;
+                startDrag(window, e);
+            });
+        }
+        
+        // Make window resizable via resize handles
+        const resizeHandles = window.querySelectorAll('.resize-handle');
+        resizeHandles.forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                startResize(window, handle, e);
+            });
+        });
+        
+        // Bring window to front on click
+        window.addEventListener('mousedown', () => {
+            bringToFront(window);
+        });
+    });
+    
+    // Global mouse move and up handlers
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+}
+
+/**
+ * Start dragging a window
+ */
+function startDrag(window, e) {
+    const rect = window.getBoundingClientRect();
+    dragState = {
+        window: window,
+        startX: e.clientX,
+        startY: e.clientY,
+        startLeft: rect.left,
+        startTop: rect.top
+    };
+    window.classList.add('dragging');
+    bringToFront(window);
+}
+
+/**
+ * Start resizing a window
+ */
+function startResize(window, handle, e) {
+    const rect = window.getBoundingClientRect();
+    const handleClass = handle.className.split(' ').find(c => c !== 'resize-handle');
+    
+    resizeState = {
+        window: window,
+        handle: handleClass,
+        startX: e.clientX,
+        startY: e.clientY,
+        startWidth: rect.width,
+        startHeight: rect.height,
+        startLeft: rect.left,
+        startTop: rect.top
+    };
+    window.classList.add('resizing');
+    bringToFront(window);
+}
+
+/**
+ * Handle mouse move for dragging and resizing
+ */
+function handleMouseMove(e) {
+    if (dragState) {
+        const deltaX = e.clientX - dragState.startX;
+        const deltaY = e.clientY - dragState.startY;
+        
+        let newLeft = dragState.startLeft + deltaX;
+        let newTop = dragState.startTop + deltaY;
+        
+        // Constrain to viewport
+        const maxLeft = window.innerWidth - dragState.window.offsetWidth;
+        const maxTop = window.innerHeight - dragState.window.offsetHeight;
+        
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        newTop = Math.max(0, Math.min(newTop, maxTop));
+        
+        dragState.window.style.left = newLeft + 'px';
+        dragState.window.style.top = newTop + 'px';
+    }
+    
+    if (resizeState) {
+        const deltaX = e.clientX - resizeState.startX;
+        const deltaY = e.clientY - resizeState.startY;
+        
+        let newWidth = resizeState.startWidth;
+        let newHeight = resizeState.startHeight;
+        let newLeft = resizeState.startLeft;
+        let newTop = resizeState.startTop;
+        
+        const minWidth = 200;
+        const minHeight = 150;
+        const maxWidth = window.innerWidth - 20;
+        const maxHeight = window.innerHeight - 20;
+        
+        // Handle different resize directions
+        if (resizeState.handle.includes('e')) {
+            newWidth = Math.min(maxWidth, Math.max(minWidth, resizeState.startWidth + deltaX));
+        }
+        if (resizeState.handle.includes('w')) {
+            const widthChange = resizeState.startWidth - deltaX;
+            if (widthChange >= minWidth && resizeState.startLeft + deltaX >= 0) {
+                newWidth = Math.min(maxWidth, widthChange);
+                newLeft = resizeState.startLeft + deltaX;
+            }
+        }
+        if (resizeState.handle.includes('s')) {
+            newHeight = Math.min(maxHeight, Math.max(minHeight, resizeState.startHeight + deltaY));
+        }
+        if (resizeState.handle.includes('n')) {
+            const heightChange = resizeState.startHeight - deltaY;
+            if (heightChange >= minHeight && resizeState.startTop + deltaY >= 0) {
+                newHeight = Math.min(maxHeight, heightChange);
+                newTop = resizeState.startTop + deltaY;
+            }
+        }
+        
+        resizeState.window.style.width = newWidth + 'px';
+        resizeState.window.style.height = newHeight + 'px';
+        if (newLeft !== resizeState.startLeft) {
+            resizeState.window.style.left = newLeft + 'px';
+        }
+        if (newTop !== resizeState.startTop) {
+            resizeState.window.style.top = newTop + 'px';
+        }
+    }
+}
+
+/**
+ * Handle mouse up to stop dragging/resizing
+ */
+function handleMouseUp() {
+    if (dragState) {
+        dragState.window.classList.remove('dragging');
+        dragState = null;
+    }
+    if (resizeState) {
+        resizeState.window.classList.remove('resizing');
+        resizeState = null;
+    }
+}
+
+/**
+ * Bring window to front
+ */
+function bringToFront(window) {
+    const windows = document.querySelectorAll('.window');
+    let maxZ = 1;
+    windows.forEach(w => {
+        const z = parseInt(getComputedStyle(w).zIndex) || 1;
+        if (z > maxZ) maxZ = z;
+    });
+    window.style.zIndex = maxZ + 1;
 }
 
 /**
