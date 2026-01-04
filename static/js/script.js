@@ -1293,6 +1293,9 @@ function createTrackList(tracks, container) {
  * Create release trends chart
  */
 function createReleaseTrendsChart(data, container) {
+    if (container && container.classList) {
+        container.classList.remove('loading-state');
+    }
     container.innerHTML = '';
     
     if (data.error) {
@@ -1602,6 +1605,9 @@ function createHiddenGemsList(tracks, container) {
  * Create seasonal variety chart
  */
 function createSeasonalVarietyChart(data, container) {
+    if (container && container.classList) {
+        container.classList.remove('loading-state');
+    }
     container.innerHTML = '';
     
     if (data.error) {
@@ -1744,13 +1750,58 @@ function createSeasonalVarietyChart(data, container) {
 }
 
 /**
+ * Create loading bar HTML
+ */
+function createLoadingBar() {
+    return '<div class="loading-bar-container"><div class="loading-bar-wrapper"><div class="loading-bar-fill"></div></div><div class="loading-bar-text">Loading...</div></div>';
+}
+
+/**
+ * Check if container should show loading bar (for slow-loading sections)
+ */
+function shouldShowLoadingBar(container) {
+    if (!container) return false;
+    
+    try {
+        const id = container.id || '';
+        const slowLoadingIds = ['playlists-grid', 'timeless-artists-grid', 'trending-down-grid', 'release-trends-chart', 'seasonal-variety-chart'];
+        return slowLoadingIds.some(slowId => id.includes(slowId));
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
  * Show loading state
  */
 function showLoading(container) {
+    if (!container) return;
+    
+    const useLoadingBar = shouldShowLoadingBar(container);
+    
+    // Handle chart containers specially
+    if (container.classList && container.classList.contains('chart-container')) {
+        if (useLoadingBar) {
+            container.classList.add('loading-state');
+            container.innerHTML = createLoadingBar();
+        } else {
+            container.innerHTML = '<div class="loading">Loading...</div>';
+        }
+        return;
+    }
+    
     if (container.tagName === 'TBODY') {
-        container.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+        if (useLoadingBar) {
+            container.innerHTML = '<tr><td colspan="5" style="padding: 0;">' + createLoadingBar() + '</td></tr>';
+        } else {
+            container.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+        }
     } else {
-        container.innerHTML = '<div class="loading">Loading...</div>';
+        if (useLoadingBar) {
+            container.innerHTML = createLoadingBar();
+        } else {
+            container.innerHTML = '<div class="loading">Loading...</div>';
+        }
     }
 }
 
@@ -2109,34 +2160,15 @@ function createPreviewReleaseTrends(data, targetWindow = null) {
     
     container.innerHTML = '';
     
-    // Create mini chart
-    const chartContainer = document.createElement('div');
-    chartContainer.className = 'preview-mini-chart';
-    
-    // Get max value for scaling
-    const maxCount = Math.max(...data.data.map(item => item.count));
-    
-    // Show last 8 years of data
-    const recentData = data.data.slice(-8);
-    
-    recentData.forEach(item => {
-        const bar = document.createElement('div');
-        bar.className = 'preview-chart-bar';
-        bar.style.height = `${(item.count / maxCount) * 100}%`;
-        bar.title = `${item.year}: ${item.count} tracks`;
-        chartContainer.appendChild(bar);
-    });
-    
-    container.appendChild(chartContainer);
-    
-    // Add summary text
-    const summary = document.createElement('div');
-    summary.style.color = 'var(--spotify-light-text)';
-    summary.style.fontSize = '12px';
-    summary.style.marginTop = '8px';
+    // Show peak year as text
+    const text = document.createElement('div');
+    text.style.fontSize = '11px';
+    text.style.color = '#000';
+    text.style.lineHeight = '1.4';
+    text.style.padding = '4px 0';
     const peakYear = data.peak_year && data.peak_year.year ? data.peak_year.year : 'N/A';
-    summary.textContent = `Peak year: ${peakYear}`;
-    container.appendChild(summary);
+    text.textContent = `Peak Release Year: ${peakYear}`;
+    container.appendChild(text);
     
     // Show the preview card now that data is ready
     const previewCard = container.closest('.preview-card');
@@ -2157,35 +2189,31 @@ function createPreviewSeasonal(data, targetWindow = null) {
     
     container.innerHTML = '';
     
-    const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
-    const seasonColors = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
+    const seasons = ['Winter', 'Spring', 'Summer', 'Fall'];
+    const textContainer = document.createElement('div');
+    textContainer.style.fontSize = '11px';
+    textContainer.style.color = '#000';
+    textContainer.style.lineHeight = '1.4';
+    textContainer.style.padding = '4px 0';
     
-    seasons.forEach((season, index) => {
-        const seasonData = data.seasonal_data[season.toLowerCase()];
-        if (!seasonData || !seasonData.genres) return;
-        
-        const item = document.createElement('div');
-        item.style.display = 'flex';
-        item.style.alignItems = 'center';
-        item.style.gap = '8px';
-        item.style.padding = '4px 0';
-        
-        const dot = document.createElement('div');
-        dot.style.width = '8px';
-        dot.style.height = '8px';
-        dot.style.borderRadius = '50%';
-        dot.style.background = seasonColors[index];
-        dot.style.flexShrink = '0';
-        
-        const text = document.createElement('div');
-        text.style.color = 'var(--spotify-white)';
-        text.style.fontSize = '12px';
-        text.textContent = `${season}: ${Object.keys(seasonData.genres).length} genres`;
-        
-        item.appendChild(dot);
-        item.appendChild(text);
-        container.appendChild(item);
+    const textLines = [];
+    
+    seasons.forEach((season) => {
+        const seasonData = data.seasonal_data[season];
+        if (seasonData && seasonData.length > 0) {
+            // Get top genre (first item is highest count)
+            const topGenre = seasonData[0].genre;
+            // Use lowercase season name with colon
+            const seasonLower = season.toLowerCase();
+            textLines.push(`${seasonLower}: ${topGenre}`);
+        }
     });
+    
+    if (textLines.length > 0) {
+        // Use <br> tags to create line breaks
+        textContainer.innerHTML = textLines.join('<br>');
+        container.appendChild(textContainer);
+    }
     
     // Show the preview card now that data is ready
     const previewCard = container.closest('.preview-card');

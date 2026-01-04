@@ -372,7 +372,7 @@
         }
 
         .preview-content {
-            min-height: 80px;
+            min-height: 0;
         }
 
         .preview-item {
@@ -428,6 +428,58 @@
         .loading {
             padding: 20px;
             text-align: center;
+        }
+
+        .loading-bar-container {
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        .loading-bar-wrapper {
+            width: 100%;
+            max-width: 400px;
+            height: 24px;
+            border: 2px inset #c0c0c0;
+            background: #f0f0f0;
+            margin: 0 auto 12px auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading-bar-fill {
+            height: 100%;
+            background: #000080;
+            width: 0%;
+            animation: loading-bar-animation 2s ease-in-out infinite;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        @keyframes loading-bar-animation {
+            0% {
+                width: 0%;
+                left: 0%;
+            }
+            50% {
+                width: 70%;
+                left: 15%;
+            }
+            100% {
+                width: 0%;
+                left: 100%;
+            }
+        }
+
+        .loading-bar-text {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .chart-container.loading-state {
+            background: transparent;
+            border: none;
+            padding: 0;
         }
 
         .error {
