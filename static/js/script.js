@@ -20,10 +20,10 @@ function initializeApp() {
  * Setup navigation event listeners
  */
 function setupNavigation() {
-    const navLinks = document.querySelectorAll('.nav-link');
+    const navButtons = document.querySelectorAll('.nav-button');
     
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
+    navButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
             const section = e.currentTarget.dataset.section;
             if (section) {
                 switchSection(section);
@@ -47,11 +47,11 @@ function setupNavigation() {
  * Setup time range controls
  */
 function setupTimeRangeControls() {
-    const timeRangeButtons = document.querySelectorAll('.time-range-btn');
+    const timeRangeRadios = document.querySelectorAll('input[name="time-range"]');
     
-    timeRangeButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const range = e.currentTarget.dataset.range;
+    timeRangeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const range = e.currentTarget.value;
             if (range) {
                 selectTimeRange(range);
             }
@@ -64,21 +64,22 @@ function setupTimeRangeControls() {
  */
 function switchSection(sectionId) {
     // Update navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
+    document.querySelectorAll('.nav-button').forEach(button => {
+        button.classList.remove('active');
     });
-    document.querySelector(`[data-section="${sectionId}"]`).classList.add('active');
+    const activeButton = document.querySelector(`.nav-button[data-section="${sectionId}"]`);
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
     
     // Hide all sections
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.remove('active');
-        section.classList.add('hidden');
     });
     
     // Show selected section
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
-        targetSection.classList.remove('hidden');
         targetSection.classList.add('active');
         currentSection = sectionId;
         
@@ -93,11 +94,11 @@ function switchSection(sectionId) {
 function selectTimeRange(range) {
     selectedTimeRange = range;
     
-    // Update button states
-    document.querySelectorAll('.time-range-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-range="${range}"]`).classList.add('active');
+    // Update radio button states
+    const radio = document.querySelector(`input[name="time-range"][value="${range}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
     
     // Reload current section data
     loadSectionData(currentSection);
@@ -209,21 +210,22 @@ async function loadOverviewData() {
  */
 async function loadTopTracks() {
     const container = document.getElementById('tracks-list');
-    showLoading(container);
+    const tbody = container.querySelector('tbody') || container;
+    showLoading(tbody);
 
     try {
         const response = await fetch(`/top_songs?time_range=${selectedTimeRange}`);
         const data = await response.json();
 
         if (data.error) {
-            showError(container, data.error);
+            showError(tbody, data.error);
             return;
         }
 
         createTrackList(data, container);
     } catch (error) {
         console.error('Error loading top tracks:', error);
-        showError(container, 'Failed to load top tracks');
+        showError(tbody, 'Failed to load top tracks');
     }
 }
 
@@ -324,21 +326,22 @@ async function loadTopPlaylists() {
  */
 async function loadHiddenGems() {
     const container = document.getElementById('hidden-gems-list');
-    showLoading(container);
+    const tbody = container.querySelector('tbody') || container;
+    showLoading(tbody);
 
     try {
         const response = await fetch(`/hidden_gems?time_range=${selectedTimeRange}`);
         const data = await response.json();
 
         if (data.error) {
-            showError(container, data.error);
+            showError(tbody, data.error);
             return;
         }
 
         createHiddenGemsList(data, container);
     } catch (error) {
         console.error('Error loading hidden gems:', error);
-        showError(container, 'Failed to load hidden gems');
+        showError(tbody, 'Failed to load hidden gems');
     }
 }
 
@@ -470,7 +473,7 @@ function createOverviewCards(cards) {
         cardElement.className = 'music-card';
         
         const imageContent = card.image 
-            ? `<img src="${card.image}" alt="${card.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` 
+            ? `<img src="${card.image}" alt="${card.title}" style="width: 100%; height: 100%; object-fit: cover;">` 
             : card.icon;
         
         cardElement.innerHTML = `
@@ -494,7 +497,7 @@ function createCardGrid(cards, container) {
         cardElement.className = 'music-card';
         
         const imageContent = card.image 
-            ? `<img src="${card.image}" alt="${card.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` 
+            ? `<img src="${card.image}" alt="${card.title}" style="width: 100%; height: 100%; object-fit: cover;">` 
             : card.icon;
         
         cardElement.innerHTML = `
@@ -511,41 +514,34 @@ function createCardGrid(cards, container) {
  * Create track list
  */
 function createTrackList(tracks, container) {
-    container.innerHTML = '';
-
-    // Add header
-    const header = document.createElement('div');
-    header.className = 'track-list-header';
-    header.innerHTML = `
-        <span style="width: 32px; text-align: center;">#</span>
-        <span style="margin-left: 64px;">Title</span>
-        <span style="margin-left: auto; margin-right: 24px;">Popularity</span>
-        <span style="width: 60px; text-align: right;">Duration</span>
-    `;
-    container.appendChild(header);
+    const tbody = container.querySelector('tbody') || container;
+    tbody.innerHTML = '';
 
     tracks.forEach((track, index) => {
-        const trackElement = document.createElement('div');
-        trackElement.className = 'track-item';
+        const row = document.createElement('tr');
         
         const imageContent = track.album_image 
-            ? `<img src="${track.album_image}" alt="${track.song_name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;">` 
+            ? `<img src="${track.album_image}" alt="${track.song_name}" style="width: 100%; height: 100%; object-fit: cover;">` 
             : '';
         
         const duration = track.duration_ms ? formatDuration(track.duration_ms) : '-:--';
         const popularity = track.popularity || 0;
         
-        trackElement.innerHTML = `
-            <span class="track-number">${index + 1}</span>
-            <div class="track-image">${imageContent}</div>
-            <div class="track-info">
-                <div class="track-name">${track.song_name}</div>
-                <div class="track-artist">${track.artists || 'Unknown Artist'}</div>
-            </div>
-            <span class="track-plays">${popularity}</span>
-            <span class="track-duration">${duration}</span>
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>
+                <div class="track-image" style="width: 48px; height: 48px;">
+                    ${imageContent}
+                </div>
+            </td>
+            <td>
+                <div style="font-weight: bold;">${track.song_name}</div>
+                <div style="font-size: 10px; color: #666;">${track.artists || 'Unknown Artist'}</div>
+            </td>
+            <td>${popularity}</td>
+            <td>${duration}</td>
         `;
-        container.appendChild(trackElement);
+        tbody.appendChild(row);
     });
 }
 
@@ -568,17 +564,17 @@ function createReleaseTrendsChart(data, container) {
     // Create chart header with stats
     const header = document.createElement('div');
     header.style.marginBottom = '24px';
-    header.innerHTML = `
+            header.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="color: var(--spotify-white); margin: 0;">Release Year Distribution</h3>
+            <h3 style="margin: 0; font-weight: bold;">Release Year Distribution</h3>
             <div style="display: flex; gap: 24px;">
                 <div style="text-align: center;">
-                    <div style="color: var(--spotify-green); font-size: 24px; font-weight: bold;">${data.total_tracks}</div>
-                    <div style="color: var(--spotify-light-text); font-size: 12px;">Total Tracks</div>
+                    <div style="color: #000080; font-size: 24px; font-weight: bold;">${data.total_tracks}</div>
+                    <div style="font-size: 11px;">Total Tracks</div>
                 </div>
                 <div style="text-align: center;">
-                    <div style="color: var(--spotify-green); font-size: 24px; font-weight: bold;">${data.peak_year.year}</div>
-                    <div style="color: var(--spotify-light-text); font-size: 12px;">Peak Year</div>
+                    <div style="color: #000080; font-size: 24px; font-weight: bold;">${data.peak_year.year}</div>
+                    <div style="font-size: 11px;">Peak Year</div>
                 </div>
             </div>
         </div>
@@ -588,10 +584,10 @@ function createReleaseTrendsChart(data, container) {
     // Create bar chart
     const chartContainer = document.createElement('div');
     chartContainer.style.cssText = `
-        background: var(--spotify-medium-gray);
-        border-radius: 8px;
-        padding: 24px;
-        margin-bottom: 24px;
+        background: white;
+        border: 2px inset #c0c0c0;
+        padding: 16px;
+        margin-bottom: 16px;
     `;
     
     // Find max count for scaling
@@ -625,8 +621,7 @@ function createReleaseTrendsChart(data, container) {
             bar.style.cssText = `
                 width: 100%;
                 height: ${barHeight}px;
-                background: linear-gradient(180deg, var(--spotify-green-hover), var(--spotify-green));
-                border-radius: 4px 4px 0 0;
+                background: #000080;
                 margin-bottom: 8px;
                 transition: all 0.2s ease;
                 position: relative;
@@ -640,11 +635,11 @@ function createReleaseTrendsChart(data, container) {
                 top: -24px;
                 left: 50%;
                 transform: translateX(-50%);
-                background: var(--spotify-black);
-                color: var(--spotify-white);
-                font-size: 12px;
+                background: #c0c0c0;
+                color: #000;
+                font-size: 11px;
                 padding: 4px 8px;
-                border-radius: 4px;
+                border: 2px inset #c0c0c0;
                 opacity: 0;
                 transition: opacity 0.2s ease;
             `;
@@ -653,9 +648,7 @@ function createReleaseTrendsChart(data, container) {
             const yearLabel = document.createElement('div');
             yearLabel.textContent = item.year;
             yearLabel.style.cssText = `
-                color: var(--spotify-light-text);
-                font-size: 12px;
-                font-weight: 500;
+                font-size: 11px;
                 writing-mode: vertical-rl;
                 text-orientation: mixed;
             `;
@@ -685,25 +678,14 @@ function createReleaseTrendsChart(data, container) {
  * Create hidden gems list
  */
 function createHiddenGemsList(tracks, container) {
-    container.innerHTML = '';
-
-    // Add header
-    const header = document.createElement('div');
-    header.className = 'track-list-header';
-    header.innerHTML = `
-        <span style="width: 32px; text-align: center;">#</span>
-        <span style="margin-left: 64px;">Title</span>
-        <span style="margin-left: auto; margin-right: 24px;">Rarity</span>
-        <span style="width: 60px; text-align: right;">Duration</span>
-    `;
-    container.appendChild(header);
+    const tbody = container.querySelector('tbody') || container;
+    tbody.innerHTML = '';
 
     tracks.forEach((track, index) => {
-        const trackElement = document.createElement('div');
-        trackElement.className = 'track-item';
+        const row = document.createElement('tr');
         
         const imageContent = track.album_image 
-            ? `<img src="${track.album_image}" alt="${track.song_name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;">` 
+            ? `<img src="${track.album_image}" alt="${track.song_name}" style="width: 100%; height: 100%; object-fit: cover;">` 
             : '';
         
         const duration = track.duration_ms ? formatDuration(track.duration_ms) : '-:--';
@@ -727,19 +709,23 @@ function createHiddenGemsList(tracks, container) {
             rarityColor = '#10b981'; // Green for uncommon
         }
         
-        trackElement.innerHTML = `
-            <span class="track-number">${index + 1}</span>
-            <div class="track-image">${imageContent}</div>
-            <div class="track-info">
-                <div class="track-name">${track.song_name}</div>
-                <div class="track-artist">${track.artists || 'Unknown Artist'}</div>
-            </div>
-            <span class="track-plays" style="color: ${rarityColor}; font-weight: 600;">
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>
+                <div class="track-image" style="width: 48px; height: 48px;">
+                    ${imageContent}
+                </div>
+            </td>
+            <td>
+                <div style="font-weight: bold;">${track.song_name}</div>
+                <div style="font-size: 10px; color: #666;">${track.artists || 'Unknown Artist'}</div>
+            </td>
+            <td style="color: ${rarityColor}; font-weight: bold;">
                 ${rarityLabel} (${popularity})
-            </span>
-            <span class="track-duration">${duration}</span>
+            </td>
+            <td>${duration}</td>
         `;
-        container.appendChild(trackElement);
+        tbody.appendChild(row);
     });
 }
 
@@ -761,13 +747,13 @@ function createSeasonalVarietyChart(data, container) {
 
     // Create header
     const header = document.createElement('div');
-    header.style.marginBottom = '24px';
+    header.style.marginBottom = '16px';
     header.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="color: var(--spotify-white); margin: 0;">Music Variety by Season</h3>
+            <h3 style="margin: 0; font-weight: bold;">Music Variety by Season</h3>
             <div style="text-align: center;">
-                <div style="color: var(--spotify-green); font-size: 24px; font-weight: bold;">${data.seasons_with_data.length}</div>
-                <div style="color: var(--spotify-light-text); font-size: 12px;">Seasons with Data</div>
+                <div style="color: #000080; font-size: 24px; font-weight: bold;">${data.seasons_with_data.length}</div>
+                <div style="font-size: 11px;">Seasons with Data</div>
             </div>
         </div>
     `;
@@ -778,7 +764,7 @@ function createSeasonalVarietyChart(data, container) {
     seasonsGrid.style.cssText = `
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 24px;
+        gap: 16px;
     `;
     
     const seasonOrder = ['Winter', 'Spring', 'Summer', 'Fall'];
@@ -795,10 +781,9 @@ function createSeasonalVarietyChart(data, container) {
         
         const seasonCard = document.createElement('div');
         seasonCard.style.cssText = `
-            background: var(--spotify-medium-gray);
-            border-radius: 8px;
-            padding: 20px;
-            transition: all 0.3s ease;
+            background: white;
+            border: 2px inset #c0c0c0;
+            padding: 16px;
         `;
         
         // Season header
@@ -811,7 +796,7 @@ function createSeasonalVarietyChart(data, container) {
         `;
         seasonHeader.innerHTML = `
             <span style="font-size: 24px;">${seasonEmojis[season]}</span>
-            <h4 style="color: var(--spotify-white); margin: 0; font-size: 18px;">${season}</h4>
+            <h4 style="margin: 0; font-size: 13px; font-weight: bold;">${season}</h4>
         `;
         seasonCard.appendChild(seasonHeader);
         
@@ -819,9 +804,9 @@ function createSeasonalVarietyChart(data, container) {
             const noData = document.createElement('div');
             noData.style.cssText = `
                 text-align: center;
-                color: var(--spotify-light-text);
                 font-style: italic;
                 padding: 20px;
+                color: #666;
             `;
             noData.textContent = 'No data for this season';
             seasonCard.appendChild(noData);
@@ -849,8 +834,8 @@ function createSeasonalVarietyChart(data, container) {
                 genreBar.style.cssText = `
                     flex: 1;
                     height: 24px;
-                    background: var(--spotify-light-gray);
-                    border-radius: 12px;
+                    background: #c0c0c0;
+                    border: 2px inset #c0c0c0;
                     overflow: hidden;
                     position: relative;
                 `;
@@ -860,21 +845,18 @@ function createSeasonalVarietyChart(data, container) {
                     height: 100%;
                     width: ${barWidth}%;
                     background: ${seasonColors[season]};
-                    border-radius: 12px;
                     transition: width 0.8s ease;
-                    animation: fillBar 0.8s ease forwards;
                 `;
                 
                 const genreInfo = document.createElement('div');
                 genreInfo.style.cssText = `
                     position: absolute;
-                    left: 12px;
+                    left: 8px;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: var(--spotify-white);
-                    font-size: 12px;
-                    font-weight: 500;
-                    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+                    color: #000;
+                    font-size: 11px;
+                    font-weight: bold;
                 `;
                 genreInfo.textContent = `${genre.genre} (${genre.count})`;
                 
@@ -887,16 +869,6 @@ function createSeasonalVarietyChart(data, container) {
             seasonCard.appendChild(genreList);
         }
         
-        // Hover effect
-        seasonCard.addEventListener('mouseenter', () => {
-            seasonCard.style.backgroundColor = 'var(--spotify-light-gray)';
-            seasonCard.style.transform = 'translateY(-2px)';
-        });
-        
-        seasonCard.addEventListener('mouseleave', () => {
-            seasonCard.style.backgroundColor = 'var(--spotify-medium-gray)';
-            seasonCard.style.transform = 'translateY(0)';
-        });
         
         seasonsGrid.appendChild(seasonCard);
     });
@@ -908,7 +880,11 @@ function createSeasonalVarietyChart(data, container) {
  * Show loading state
  */
 function showLoading(container) {
-    container.innerHTML = '<div class="loading">Loading...</div>';
+    if (container.tagName === 'TBODY') {
+        container.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+    } else {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+    }
 }
 
 /**
@@ -918,7 +894,11 @@ function showError(container, message) {
     if (typeof container === 'string') {
         container = document.getElementById(container);
     }
-    container.innerHTML = `<div class="error">${message}</div>`;
+    if (container.tagName === 'TBODY') {
+        container.innerHTML = `<tr><td colspan="5" class="error">${message}</td></tr>`;
+    } else {
+        container.innerHTML = `<div class="error">${message}</div>`;
+    }
 }
 
 /**
