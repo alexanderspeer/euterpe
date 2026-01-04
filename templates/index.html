@@ -31,10 +31,15 @@
 
         .sidebar-window {
             width: 256px;
-            height: 400px;
+            height: 630px;
             top: 16px;
             left: 16px;
             z-index: 1;
+        }
+
+        .sidebar-window .window-body {
+            overflow: visible;
+            flex: 0 0 auto;
         }
 
         .main-content-window {
@@ -128,6 +133,14 @@
             cursor: sw-resize;
         }
 
+        .window-title-close {
+            cursor: pointer;
+        }
+
+        .window-title-close:hover {
+            opacity: 0.8;
+        }
+
         .window {
             display: flex;
             flex-direction: column;
@@ -139,6 +152,11 @@
             overflow: auto;
             flex: 1;
             min-height: 0;
+        }
+
+        .sidebar-window .window-body {
+            overflow: visible;
+            flex: 0 0 auto;
         }
 
         .content-section {
@@ -428,11 +446,6 @@
         <div class="window sidebar-window">
             <div class="title-bar">
                 <div class="title-bar-text">Navigation</div>
-                <div class="title-bar-controls">
-                    <button aria-label="Minimize"></button>
-                    <button aria-label="Maximize"></button>
-                    <button aria-label="Close"></button>
-                </div>
             </div>
             <div class="resize-handle n"></div>
             <div class="resize-handle s"></div>
@@ -757,6 +770,11 @@
                 </section>
             </div>
         </div>
+    </div>
+
+    <!-- Hidden template container for section templates -->
+    <div id="section-templates" style="display: none;">
+        <!-- Templates will be stored here -->
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>

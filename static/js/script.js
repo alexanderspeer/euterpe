@@ -6,6 +6,10 @@ let currentSection = 'overview';
 let dragState = null;
 let resizeState = null;
 
+// Track open windows
+let openWindows = new Map();
+let windowCounter = 0;
+
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -16,9 +20,35 @@ document.addEventListener('DOMContentLoaded', () => {
  * Initialize the application
  */
 function initializeApp() {
+    // Store section templates before any windows are closed
+    storeSectionTemplates();
     setupNavigation();
     setupTimeRangeControls();
     loadOverviewData();
+    
+    // Initial update of navigation button states (overview should be bold since main window exists)
+    updateNavigationButtonStates();
+}
+
+/**
+ * Store section templates in a hidden container for reuse
+ */
+function storeSectionTemplates() {
+    const mainWindow = document.querySelector('.main-content-window');
+    if (!mainWindow) return;
+    
+    const templateContainer = document.getElementById('section-templates');
+    if (!templateContainer) return;
+    
+    // Get all sections from the main window
+    const sections = mainWindow.querySelectorAll('.content-section');
+    sections.forEach(section => {
+        // Clone and store in template container
+        const template = section.cloneNode(true);
+        template.id = `template-${section.id}`;
+        template.classList.remove('active');
+        templateContainer.appendChild(template);
+    });
 }
 
 /**
@@ -28,28 +58,7 @@ function initializeWindowControls() {
     const windows = document.querySelectorAll('.window');
     
     windows.forEach(window => {
-        // Make window draggable via title bar
-        const titleBar = window.querySelector('.title-bar');
-        if (titleBar) {
-            titleBar.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.title-bar-controls')) return;
-                startDrag(window, e);
-            });
-        }
-        
-        // Make window resizable via resize handles
-        const resizeHandles = window.querySelectorAll('.resize-handle');
-        resizeHandles.forEach(handle => {
-            handle.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-                startResize(window, handle, e);
-            });
-        });
-        
-        // Bring window to front on click
-        window.addEventListener('mousedown', () => {
-            bringToFront(window);
-        });
+        setupWindowControls(window);
     });
     
     // Global mouse move and up handlers
@@ -58,16 +67,64 @@ function initializeWindowControls() {
 }
 
 /**
+ * Setup controls for a single window
+ */
+function setupWindowControls(window) {
+    // Make window draggable via title bar
+    const titleBar = window.querySelector('.title-bar');
+    if (titleBar) {
+        titleBar.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.title-bar-controls')) return;
+            startDrag(window, e);
+        });
+    }
+    
+    // Setup close button
+    const closeButton = window.querySelector('.title-bar-controls button[aria-label="Close"]');
+    if (closeButton) {
+        closeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeWindow(window);
+        });
+    }
+    
+    // Make window resizable via resize handles
+    const resizeHandles = window.querySelectorAll('.resize-handle');
+    resizeHandles.forEach(handle => {
+        handle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startResize(window, handle, e);
+        });
+    });
+    
+    // Bring window to front on click (but not on buttons or interactive elements)
+    window.addEventListener('mousedown', (e) => {
+        // Don't bring to front if clicking on buttons, inputs, or other interactive elements
+        if (e.target.tagName === 'BUTTON' || 
+            e.target.tagName === 'INPUT' || 
+            e.target.closest('button') || 
+            e.target.closest('input') ||
+            e.target.closest('.nav-button')) {
+            return;
+        }
+        bringToFront(window);
+    });
+}
+
+/**
  * Start dragging a window
  */
 function startDrag(window, e) {
-    const rect = window.getBoundingClientRect();
+    // Get current computed position (relative to app-container)
+    const currentLeft = parseInt(getComputedStyle(window).left) || 0;
+    const currentTop = parseInt(getComputedStyle(window).top) || 0;
+    
     dragState = {
         window: window,
         startX: e.clientX,
         startY: e.clientY,
-        startLeft: rect.left,
-        startTop: rect.top
+        startLeft: currentLeft,
+        startTop: currentTop
     };
     window.classList.add('dragging');
     bringToFront(window);
@@ -105,9 +162,11 @@ function handleMouseMove(e) {
         let newLeft = dragState.startLeft + deltaX;
         let newTop = dragState.startTop + deltaY;
         
-        // Constrain to viewport
-        const maxLeft = window.innerWidth - dragState.window.offsetWidth;
-        const maxTop = window.innerHeight - dragState.window.offsetHeight;
+        // Constrain to app-container (accounting for body padding)
+        const appContainer = document.querySelector('.app-container');
+        const containerRect = appContainer.getBoundingClientRect();
+        const maxLeft = containerRect.width - dragState.window.offsetWidth;
+        const maxTop = containerRect.height - dragState.window.offsetHeight;
         
         newLeft = Math.max(0, Math.min(newLeft, maxLeft));
         newTop = Math.max(0, Math.min(newTop, maxTop));
@@ -191,29 +250,229 @@ function bringToFront(window) {
 }
 
 /**
- * Setup navigation event listeners
+ * Close a window
  */
-function setupNavigation() {
+function closeWindow(window) {
+    const windowId = window.dataset.windowId;
+    if (windowId && openWindows.has(windowId)) {
+        openWindows.delete(windowId);
+    }
+    window.remove();
+    updateNavigationButtonStates();
+}
+
+/**
+ * Update navigation button states based on open windows
+ */
+function updateNavigationButtonStates() {
+    // Get all navigation buttons
     const navButtons = document.querySelectorAll('.nav-button');
     
     navButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            const section = e.currentTarget.dataset.section;
-            if (section) {
-                switchSection(section);
-            }
-        });
+        const sectionId = button.dataset.section;
+        if (!sectionId) return;
+        
+        // Check if a window exists for this section
+        let windowExists = false;
+        
+        // For overview, check if main-content-window exists
+        if (sectionId === 'overview') {
+            const mainWindow = document.querySelector('.main-content-window');
+            windowExists = mainWindow !== null;
+        } else {
+            // For other sections, check if a window with this section exists
+            const sectionWindow = document.querySelector(`.window[data-section="${sectionId}"]`);
+            windowExists = sectionWindow !== null;
+        }
+        
+        // Update button style using the active class (which makes it bold)
+        if (windowExists) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
     });
+}
 
-    // Add event listeners for preview cards
-    const previewCards = document.querySelectorAll('.preview-card');
-    previewCards.forEach(card => {
-        card.addEventListener('click', (e) => {
-            const section = e.currentTarget.dataset.section;
+/**
+ * Open a new window for a section
+ */
+function openWindowForSection(sectionId) {
+    // Check if window already exists for this section
+    const existingWindow = document.querySelector(`.window[data-section="${sectionId}"]`);
+    if (existingWindow) {
+        bringToFront(existingWindow);
+        return;
+    }
+    
+    // Get section title
+    const sectionTitles = {
+        'overview': 'Overview',
+        'top-tracks': 'Top Tracks',
+        'top-artists': 'Top Artists',
+        'top-albums': 'Top Albums',
+        'playlists': 'Top Playlists',
+        'hidden-gems': 'Hidden Gems',
+        'timeless-artists': 'Timeless Artists',
+        'trending-down': 'Trending Down',
+        'release-trends': 'Release Trends',
+        'seasonal-variety': 'Seasonal Variety'
+    };
+    
+    const title = sectionTitles[sectionId] || sectionId;
+    
+    // Try to get section from main window first, then from templates
+    let sectionElement = null;
+    const mainWindow = document.querySelector('.main-content-window');
+    if (mainWindow) {
+        sectionElement = mainWindow.querySelector(`#${sectionId}`);
+    }
+    
+    // If not found in main window, get from template container
+    if (!sectionElement) {
+        const templateContainer = document.getElementById('section-templates');
+        if (templateContainer) {
+            const template = templateContainer.querySelector(`#template-${sectionId}`);
+            if (template) {
+                sectionElement = template;
+            }
+        }
+    }
+    
+    if (!sectionElement) {
+        console.error(`Section ${sectionId} not found in main window or templates`);
+        return;
+    }
+    
+    // Create new window
+    const newWindow = document.createElement('div');
+    newWindow.className = 'window';
+    newWindow.dataset.section = sectionId;
+    newWindow.dataset.windowId = `window-${++windowCounter}`;
+    
+    // Calculate position (diagonal offset from existing windows)
+    const existingWindows = document.querySelectorAll('.window:not(.sidebar-window)');
+    const windowCount = existingWindows.length;
+    const diagonalOffset = 40; // Offset for diagonal pattern
+    
+    newWindow.style.width = '600px';
+    newWindow.style.height = '500px';
+    newWindow.style.top = `${100 + (diagonalOffset * windowCount)}px`;
+    newWindow.style.left = `${350 + (diagonalOffset * windowCount)}px`;
+    
+    // Clone section content
+    const clonedSection = sectionElement.cloneNode(true);
+    clonedSection.classList.add('active');
+    clonedSection.id = `${sectionId}-${windowCounter}`;
+    
+    // Create window structure
+    newWindow.innerHTML = `
+        <div class="title-bar">
+            <div class="title-bar-text">${title}</div>
+            <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="resize-handle n"></div>
+        <div class="resize-handle s"></div>
+        <div class="resize-handle e"></div>
+        <div class="resize-handle w"></div>
+        <div class="resize-handle ne"></div>
+        <div class="resize-handle nw"></div>
+        <div class="resize-handle se"></div>
+        <div class="resize-handle sw"></div>
+        <div class="window-body"></div>
+    `;
+    
+    // Add cloned content to window body
+    const windowBody = newWindow.querySelector('.window-body');
+    windowBody.appendChild(clonedSection);
+    
+    // Add to DOM
+    const appContainer = document.querySelector('.app-container');
+    appContainer.appendChild(newWindow);
+    
+    // Setup controls
+    setupWindowControls(newWindow);
+    
+    // Track window
+    openWindows.set(newWindow.dataset.windowId, newWindow);
+    
+    // Bring to front
+    bringToFront(newWindow);
+    
+    // Update IDs in cloned content to be unique
+    updateClonedContentIds(clonedSection, windowCounter);
+    
+    // Load section data after a brief delay to ensure DOM is ready
+    setTimeout(() => {
+        loadSectionData(sectionId, newWindow);
+    }, 10);
+    
+    // Update navigation button states
+    updateNavigationButtonStates();
+}
+
+/**
+ * Update IDs in cloned content to be unique
+ */
+function updateClonedContentIds(element, counter) {
+    // Update all IDs in the cloned element
+    const elementsWithIds = element.querySelectorAll('[id]');
+    elementsWithIds.forEach(el => {
+        if (el.id) {
+            el.id = `${el.id}-${counter}`;
+        }
+    });
+    
+    // Update any references to IDs in for attributes
+    const labelsWithFor = element.querySelectorAll('label[for]');
+    labelsWithFor.forEach(label => {
+        if (label.getAttribute('for')) {
+            label.setAttribute('for', `${label.getAttribute('for')}-${counter}`);
+        }
+    });
+    
+    // Update any input IDs that labels reference
+    const inputsWithId = element.querySelectorAll('input[id]');
+    inputsWithId.forEach(input => {
+        if (input.id) {
+            input.id = `${input.id}-${counter}`;
+        }
+    });
+}
+
+/**
+ * Setup navigation event listeners
+ */
+function setupNavigation() {
+    // Use event delegation on the app container to handle nav buttons
+    const appContainer = document.querySelector('.app-container');
+    
+    appContainer.addEventListener('click', (e) => {
+        const navButton = e.target.closest('.nav-button');
+        if (navButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const section = navButton.dataset.section;
+            if (section) {
+                openWindowForSection(section);
+            }
+            return;
+        }
+        
+        // Handle preview cards - these still switch in main window
+        const previewCard = e.target.closest('.preview-card');
+        if (previewCard) {
+            e.preventDefault();
+            e.stopPropagation();
+            const section = previewCard.dataset.section;
             if (section) {
                 switchSection(section);
             }
-        });
+        }
     });
 }
 
@@ -281,37 +540,43 @@ function selectTimeRange(range) {
 /**
  * Load data for specific section
  */
-function loadSectionData(sectionId) {
+function loadSectionData(sectionId, targetWindow = null) {
+    // Find the window containing this section
+    if (!targetWindow) {
+        targetWindow = document.querySelector(`.window[data-section="${sectionId}"]`) || 
+                      document.querySelector('.main-content-window');
+    }
+    
     switch (sectionId) {
         case 'overview':
-            loadOverviewData();
+            loadOverviewData(targetWindow);
             break;
         case 'top-tracks':
-            loadTopTracks();
+            loadTopTracks(targetWindow);
             break;
         case 'top-artists':
-            loadTopArtists();
+            loadTopArtists(targetWindow);
             break;
         case 'top-albums':
-            loadTopAlbums();
+            loadTopAlbums(targetWindow);
             break;
         case 'playlists':
-            loadTopPlaylists();
+            loadTopPlaylists(targetWindow);
             break;
         case 'hidden-gems':
-            loadHiddenGems();
+            loadHiddenGems(targetWindow);
             break;
         case 'timeless-artists':
-            loadTimelessArtists();
+            loadTimelessArtists(targetWindow);
             break;
         case 'trending-down':
-            loadTrendingDown();
+            loadTrendingDown(targetWindow);
             break;
         case 'release-trends':
-            loadReleaseTrends();
+            loadReleaseTrends(targetWindow);
             break;
         case 'seasonal-variety':
-            loadSeasonalVariety();
+            loadSeasonalVariety(targetWindow);
             break;
     }
 }
@@ -319,7 +584,8 @@ function loadSectionData(sectionId) {
 /**
  * Load overview data (stats + quick preview)
  */
-async function loadOverviewData() {
+async function loadOverviewData(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
     try {
         // Load multiple endpoints in parallel for overview
         const [tracksData, artistsData, albumsData] = await Promise.all([
@@ -328,13 +594,19 @@ async function loadOverviewData() {
             fetch(`/top_albums?time_range=${selectedTimeRange}`).then(r => r.json())
         ]);
 
+        // Find containers in target window
+        const statsContainer = targetWindow.querySelector('#overview-stats') || targetWindow.querySelector('[id*="overview-stats"]');
+        const cardsContainer = targetWindow.querySelector('#overview-cards') || targetWindow.querySelector('[id*="overview-cards"]');
+
         // Create stats
-        createStatsGrid([
-            { label: 'Top Tracks', value: tracksData.length || 0 },
-            { label: 'Top Artists', value: artistsData.length || 0 },
-            { label: 'Top Albums', value: albumsData.length || 0 },
-            { label: 'Time Range', value: getTimeRangeLabel(selectedTimeRange) }
-        ]);
+        if (statsContainer) {
+            createStatsGrid([
+                { label: 'Top Tracks', value: tracksData.length || 0 },
+                { label: 'Top Artists', value: artistsData.length || 0 },
+                { label: 'Top Albums', value: albumsData.length || 0 },
+                { label: 'Time Range', value: getTimeRangeLabel(selectedTimeRange) }
+            ], statsContainer);
+        }
 
         // Create overview cards (top 6 items from each category)
         const overviewCards = [];
@@ -367,23 +639,31 @@ async function loadOverviewData() {
             });
         }
 
-        createOverviewCards(overviewCards);
+        if (cardsContainer) {
+            createOverviewCards(overviewCards, cardsContainer);
+        }
 
-        // Load preview data for all sections
-        loadAllPreviews(tracksData, artistsData, albumsData);
+        // Load preview data for all sections (only in main window)
+        if (targetWindow === document || targetWindow.classList.contains('main-content-window')) {
+            loadAllPreviews(tracksData, artistsData, albumsData);
+        }
 
     } catch (error) {
         console.error('Error loading overview data:', error);
-        showError('overview-stats', 'Failed to load overview data');
-        showError('overview-cards', 'Failed to load overview cards');
+        const statsContainer = targetWindow.querySelector('#overview-stats') || targetWindow.querySelector('[id*="overview-stats"]');
+        const cardsContainer = targetWindow.querySelector('#overview-cards') || targetWindow.querySelector('[id*="overview-cards"]');
+        if (statsContainer) showError(statsContainer, 'Failed to load overview data');
+        if (cardsContainer) showError(cardsContainer, 'Failed to load overview cards');
     }
 }
 
 /**
  * Load top tracks
  */
-async function loadTopTracks() {
-    const container = document.getElementById('tracks-list');
+async function loadTopTracks(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#tracks-list') || targetWindow.querySelector('[id*="tracks-list"]');
+    if (!container) return;
     const tbody = container.querySelector('tbody') || container;
     showLoading(tbody);
 
@@ -406,8 +686,10 @@ async function loadTopTracks() {
 /**
  * Load top artists
  */
-async function loadTopArtists() {
-    const container = document.getElementById('artists-grid');
+async function loadTopArtists(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#artists-grid') || targetWindow.querySelector('[id*="artists-grid"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -437,8 +719,10 @@ async function loadTopArtists() {
 /**
  * Load top albums
  */
-async function loadTopAlbums() {
-    const container = document.getElementById('albums-grid');
+async function loadTopAlbums(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#albums-grid') || targetWindow.querySelector('[id*="albums-grid"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -468,8 +752,10 @@ async function loadTopAlbums() {
 /**
  * Load top playlists
  */
-async function loadTopPlaylists() {
-    const container = document.getElementById('playlists-grid');
+async function loadTopPlaylists(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#playlists-grid') || targetWindow.querySelector('[id*="playlists-grid"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -498,8 +784,10 @@ async function loadTopPlaylists() {
 /**
  * Load hidden gems
  */
-async function loadHiddenGems() {
-    const container = document.getElementById('hidden-gems-list');
+async function loadHiddenGems(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#hidden-gems-list') || targetWindow.querySelector('[id*="hidden-gems-list"]');
+    if (!container) return;
     const tbody = container.querySelector('tbody') || container;
     showLoading(tbody);
 
@@ -522,8 +810,10 @@ async function loadHiddenGems() {
 /**
  * Load timeless artists
  */
-async function loadTimelessArtists() {
-    const container = document.getElementById('timeless-artists-grid');
+async function loadTimelessArtists(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#timeless-artists-grid') || targetWindow.querySelector('[id*="timeless-artists-grid"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -553,8 +843,10 @@ async function loadTimelessArtists() {
 /**
  * Load trending down artists
  */
-async function loadTrendingDown() {
-    const container = document.getElementById('trending-down-grid');
+async function loadTrendingDown(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#trending-down-grid') || targetWindow.querySelector('[id*="trending-down-grid"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -584,8 +876,10 @@ async function loadTrendingDown() {
 /**
  * Load release trends
  */
-async function loadReleaseTrends() {
-    const container = document.getElementById('release-trends-chart');
+async function loadReleaseTrends(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#release-trends-chart') || targetWindow.querySelector('[id*="release-trends-chart"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -602,8 +896,10 @@ async function loadReleaseTrends() {
 /**
  * Load seasonal variety
  */
-async function loadSeasonalVariety() {
-    const container = document.getElementById('seasonal-variety-chart');
+async function loadSeasonalVariety(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#seasonal-variety-chart') || targetWindow.querySelector('[id*="seasonal-variety-chart"]');
+    if (!container) return;
     showLoading(container);
 
     try {
@@ -620,8 +916,9 @@ async function loadSeasonalVariety() {
 /**
  * Create stats grid
  */
-function createStatsGrid(stats) {
-    const container = document.getElementById('overview-stats');
+function createStatsGrid(stats, container = null) {
+    if (!container) container = document.getElementById('overview-stats');
+    if (!container) return;
     container.innerHTML = '';
 
     stats.forEach(stat => {
@@ -638,8 +935,9 @@ function createStatsGrid(stats) {
 /**
  * Create overview cards
  */
-function createOverviewCards(cards) {
-    const container = document.getElementById('overview-cards');
+function createOverviewCards(cards, container = null) {
+    if (!container) container = document.getElementById('overview-cards');
+    if (!container) return;
     container.innerHTML = '';
 
     cards.forEach(card => {
