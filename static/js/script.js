@@ -88,11 +88,37 @@ function setupWindowControls(window) {
         });
     }
     
+    // Setup minimize button
+    const minimizeButton = window.querySelector('.title-bar-controls button[aria-label="Minimize"]');
+    if (minimizeButton) {
+        minimizeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // If maximized, restore it. Otherwise, do nothing (or could implement actual minimize)
+            if (window.dataset.maximized === 'true') {
+                restoreWindow(window);
+            }
+        });
+    }
+    
+    // Setup maximize button
+    const maximizeButton = window.querySelector('.title-bar-controls button[aria-label="Maximize"]');
+    if (maximizeButton) {
+        maximizeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Only maximize if not already maximized
+            if (window.dataset.maximized !== 'true') {
+                maximizeWindow(window);
+            }
+        });
+    }
+    
     // Make window resizable via resize handles
     const resizeHandles = window.querySelectorAll('.resize-handle');
     resizeHandles.forEach(handle => {
         handle.addEventListener('mousedown', (e) => {
             e.stopPropagation();
+            // Don't allow resizing if maximized
+            if (window.dataset.maximized === 'true') return;
             startResize(window, handle, e);
         });
     });
@@ -162,14 +188,24 @@ function handleMouseMove(e) {
         let newLeft = dragState.startLeft + deltaX;
         let newTop = dragState.startTop + deltaY;
         
-        // Constrain to app-container (accounting for body padding)
-        const appContainer = document.querySelector('.app-container');
-        const containerRect = appContainer.getBoundingClientRect();
-        const maxLeft = containerRect.width - dragState.window.offsetWidth;
-        const maxTop = containerRect.height - dragState.window.offsetHeight;
+        // Allow window to go partially off-screen, but keep at least part visible
+        // Use viewport dimensions since windows can now extend beyond app-container
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const windowWidth = dragState.window.offsetWidth;
+        const windowHeight = dragState.window.offsetHeight;
         
-        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
-        newTop = Math.max(0, Math.min(newTop, maxTop));
+        // Minimum visible area (keep at least 50px of the window visible)
+        const minVisible = 50;
+        
+        // Calculate bounds: allow going off-screen but keep minimum visible
+        const minLeft = -(windowWidth - minVisible);
+        const maxLeft = viewportWidth - minVisible;
+        const minTop = -(windowHeight - minVisible);
+        const maxTop = viewportHeight - minVisible;
+        
+        newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+        newTop = Math.max(minTop, Math.min(newTop, maxTop));
         
         dragState.window.style.left = newLeft + 'px';
         dragState.window.style.top = newTop + 'px';
@@ -247,6 +283,93 @@ function bringToFront(window) {
         if (z > maxZ) maxZ = z;
     });
     window.style.zIndex = maxZ + 1;
+}
+
+/**
+ * Maximize a window to fill available space (excluding navigation window)
+ */
+function maximizeWindow(window) {
+    // Don't maximize the sidebar window
+    if (window.classList.contains('sidebar-window')) {
+        return;
+    }
+    
+    // Store original position and size
+    const originalLeft = parseInt(getComputedStyle(window).left) || 0;
+    const originalTop = parseInt(getComputedStyle(window).top) || 0;
+    const originalWidth = parseInt(getComputedStyle(window).width) || window.offsetWidth;
+    const originalHeight = parseInt(getComputedStyle(window).height) || window.offsetHeight;
+    
+    window.dataset.originalLeft = originalLeft.toString();
+    window.dataset.originalTop = originalTop.toString();
+    window.dataset.originalWidth = originalWidth.toString();
+    window.dataset.originalHeight = originalHeight.toString();
+    
+    // Get app container dimensions
+    const appContainer = document.querySelector('.app-container');
+    if (!appContainer) return;
+    
+    const containerRect = appContainer.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // Find sidebar window to calculate available space
+    const sidebarWindow = document.querySelector('.sidebar-window');
+    let sidebarRight = 0;
+    const padding = 16; // Space around the maximized window
+    
+    if (sidebarWindow) {
+        const sidebarRect = sidebarWindow.getBoundingClientRect();
+        const sidebarLeft = parseInt(getComputedStyle(sidebarWindow).left) || 0;
+        sidebarRight = sidebarLeft + sidebarRect.width;
+    }
+    
+    // Calculate maximized dimensions
+    // Start after sidebar + padding, fill rest minus padding on all sides
+    const maxLeft = sidebarRight + padding;
+    const maxTop = padding;
+    const maxWidth = containerWidth - maxLeft - padding;
+    const maxHeight = containerHeight - (padding * 2);
+    
+    // Apply maximized size and position
+    window.style.left = maxLeft + 'px';
+    window.style.top = maxTop + 'px';
+    window.style.width = maxWidth + 'px';
+    window.style.height = maxHeight + 'px';
+    
+    // Mark as maximized
+    window.dataset.maximized = 'true';
+    
+    bringToFront(window);
+}
+
+/**
+ * Restore a window to its original size and position
+ */
+function restoreWindow(window) {
+    // Restore original position and size
+    const originalLeft = window.dataset.originalLeft;
+    const originalTop = window.dataset.originalTop;
+    const originalWidth = window.dataset.originalWidth;
+    const originalHeight = window.dataset.originalHeight;
+    
+    if (originalLeft !== undefined) {
+        window.style.left = originalLeft + 'px';
+    }
+    if (originalTop !== undefined) {
+        window.style.top = originalTop + 'px';
+    }
+    if (originalWidth !== undefined) {
+        window.style.width = originalWidth + 'px';
+    }
+    if (originalHeight !== undefined) {
+        window.style.height = originalHeight + 'px';
+    }
+    
+    // Remove maximized flag
+    window.dataset.maximized = 'false';
+    
+    bringToFront(window);
 }
 
 /**
@@ -643,10 +766,8 @@ async function loadOverviewData(targetWindow = null) {
             createOverviewCards(overviewCards, cardsContainer);
         }
 
-        // Load preview data for all sections (only in main window)
-        if (targetWindow === document || targetWindow.classList.contains('main-content-window')) {
-            loadAllPreviews(tracksData, artistsData, albumsData);
-        }
+        // Load preview data for all sections
+        loadAllPreviews(tracksData, artistsData, albumsData, targetWindow);
 
     } catch (error) {
         console.error('Error loading overview data:', error);
@@ -1395,21 +1516,47 @@ function getTimeRangeLabel(range) {
 }
 
 /**
+ * Check if all Music Analytics preview cards are loaded and show the fieldset if so
+ */
+function checkAndShowMusicAnalyticsFieldset(targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const fieldset = targetWindow.querySelector('#music-analytics-fieldset') || targetWindow.querySelector('[id*="music-analytics-fieldset"]');
+    if (!fieldset) return;
+    
+    // Check if all four preview cards are visible (no longer have loading-hidden class)
+    const timelessCard = targetWindow.querySelector('.preview-card[data-section="timeless-artists"]');
+    const trendingDownCard = targetWindow.querySelector('.preview-card[data-section="trending-down"]');
+    const releaseTrendsCard = targetWindow.querySelector('.preview-card[data-section="release-trends"]');
+    const seasonalCard = targetWindow.querySelector('.preview-card[data-section="seasonal-variety"]');
+    
+    const allLoaded = timelessCard && !timelessCard.classList.contains('loading-hidden') &&
+                      trendingDownCard && !trendingDownCard.classList.contains('loading-hidden') &&
+                      releaseTrendsCard && !releaseTrendsCard.classList.contains('loading-hidden') &&
+                      seasonalCard && !seasonalCard.classList.contains('loading-hidden');
+    
+    if (allLoaded) {
+        fieldset.classList.remove('loading-hidden');
+    }
+}
+
+/**
  * Load all preview data for dashboard sections
  */
-async function loadAllPreviews(tracksData, artistsData, albumsData) {
+async function loadAllPreviews(tracksData, artistsData, albumsData, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    
     // Load previews for sections with existing data
     if (tracksData) {
-        createPreviewTracks(tracksData.slice(0, 3));
-        createPreviewHiddenGems(tracksData.slice(0, 3).sort((a, b) => a.popularity - b.popularity));
+        createPreviewTracks(tracksData.slice(0, 3), targetWindow);
+        createPreviewHiddenGems(tracksData.slice(0, 3).sort((a, b) => a.popularity - b.popularity), targetWindow);
     }
     
     if (artistsData) {
-        createPreviewArtists(artistsData.slice(0, 3));
+        createPreviewArtists(artistsData.slice(0, 3), targetWindow);
     }
     
     if (albumsData) {
-        createPreviewAlbums(albumsData.slice(0, 3));
+        createPreviewAlbums(albumsData.slice(0, 3), targetWindow);
     }
 
     // Load additional data for other previews
@@ -1422,11 +1569,22 @@ async function loadAllPreviews(tracksData, artistsData, albumsData) {
             fetch(`/music_variety_by_season?time_range=${selectedTimeRange}`).then(r => r.json()).catch(() => {})
         ]);
 
-        createPreviewPlaylists(playlistsData.slice(0, 3));
-        createPreviewTimeless(timelessData.slice(0, 3));
-        createPreviewTrendingDown(trendingDownData.slice(0, 3));
-        createPreviewReleaseTrends(releaseTrendsData);
-        createPreviewSeasonal(seasonalData);
+        // Only create previews if data is valid (not error objects and has content)
+        if (Array.isArray(playlistsData) && !playlistsData.error) {
+            createPreviewPlaylists(playlistsData.slice(0, 3), targetWindow);
+        }
+        if (Array.isArray(timelessData) && !timelessData.error) {
+            createPreviewTimeless(timelessData.slice(0, 3), targetWindow);
+        }
+        if (Array.isArray(trendingDownData) && !trendingDownData.error) {
+            createPreviewTrendingDown(trendingDownData.slice(0, 3), targetWindow);
+        }
+        if (releaseTrendsData && !releaseTrendsData.error) {
+            createPreviewReleaseTrends(releaseTrendsData, targetWindow);
+        }
+        if (seasonalData && !seasonalData.error) {
+            createPreviewSeasonal(seasonalData, targetWindow);
+        }
         
     } catch (error) {
         console.error('Error loading additional preview data:', error);
@@ -1436,8 +1594,9 @@ async function loadAllPreviews(tracksData, artistsData, albumsData) {
 /**
  * Create preview for top tracks
  */
-function createPreviewTracks(tracks) {
-    const container = document.getElementById('preview-tracks');
+function createPreviewTracks(tracks, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-tracks') || targetWindow.querySelector('[id*="preview-tracks"]');
     if (!container || !tracks || tracks.length === 0) return;
     
     container.innerHTML = '';
@@ -1464,8 +1623,9 @@ function createPreviewTracks(tracks) {
 /**
  * Create preview for top artists
  */
-function createPreviewArtists(artists) {
-    const container = document.getElementById('preview-artists');
+function createPreviewArtists(artists, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-artists') || targetWindow.querySelector('[id*="preview-artists"]');
     if (!container || !artists || artists.length === 0) return;
     
     container.innerHTML = '';
@@ -1492,8 +1652,9 @@ function createPreviewArtists(artists) {
 /**
  * Create preview for top albums
  */
-function createPreviewAlbums(albums) {
-    const container = document.getElementById('preview-albums');
+function createPreviewAlbums(albums, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-albums') || targetWindow.querySelector('[id*="preview-albums"]');
     if (!container || !albums || albums.length === 0) return;
     
     container.innerHTML = '';
@@ -1520,8 +1681,9 @@ function createPreviewAlbums(albums) {
 /**
  * Create preview for hidden gems
  */
-function createPreviewHiddenGems(tracks) {
-    const container = document.getElementById('preview-hidden-gems');
+function createPreviewHiddenGems(tracks, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-hidden-gems') || targetWindow.querySelector('[id*="preview-hidden-gems"]');
     if (!container || !tracks || tracks.length === 0) return;
     
     container.innerHTML = '';
@@ -1555,8 +1717,9 @@ function createPreviewHiddenGems(tracks) {
 /**
  * Create preview for playlists
  */
-function createPreviewPlaylists(playlists) {
-    const container = document.getElementById('preview-playlists');
+function createPreviewPlaylists(playlists, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-playlists') || targetWindow.querySelector('[id*="preview-playlists"]');
     if (!container || !playlists || playlists.length === 0) return;
     
     container.innerHTML = '';
@@ -1578,13 +1741,22 @@ function createPreviewPlaylists(playlists) {
         `;
         container.appendChild(item);
     });
+    
+    // Show the preview card now that data is ready
+    const previewCard = container.closest('.preview-card');
+    if (previewCard) {
+        previewCard.classList.remove('loading-hidden');
+        // Check if we should show the Music Analytics fieldset
+        checkAndShowMusicAnalyticsFieldset(targetWindow);
+    }
 }
 
 /**
  * Create preview for timeless artists
  */
-function createPreviewTimeless(artists) {
-    const container = document.getElementById('preview-timeless');
+function createPreviewTimeless(artists, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-timeless') || targetWindow.querySelector('[id*="preview-timeless"]');
     if (!container || !artists || artists.length === 0) return;
     
     container.innerHTML = '';
@@ -1606,13 +1778,22 @@ function createPreviewTimeless(artists) {
         `;
         container.appendChild(item);
     });
+    
+    // Show the preview card now that data is ready
+    const previewCard = container.closest('.preview-card');
+    if (previewCard) {
+        previewCard.classList.remove('loading-hidden');
+        // Check if we should show the Music Analytics fieldset
+        checkAndShowMusicAnalyticsFieldset(targetWindow);
+    }
 }
 
 /**
  * Create preview for trending down artists
  */
-function createPreviewTrendingDown(artists) {
-    const container = document.getElementById('preview-trending-down');
+function createPreviewTrendingDown(artists, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-trending-down') || targetWindow.querySelector('[id*="preview-trending-down"]');
     if (!container || !artists || artists.length === 0) return;
     
     container.innerHTML = '';
@@ -1634,13 +1815,22 @@ function createPreviewTrendingDown(artists) {
         `;
         container.appendChild(item);
     });
+    
+    // Show the preview card now that data is ready
+    const previewCard = container.closest('.preview-card');
+    if (previewCard) {
+        previewCard.classList.remove('loading-hidden');
+        // Check if we should show the Music Analytics fieldset
+        checkAndShowMusicAnalyticsFieldset(targetWindow);
+    }
 }
 
 /**
  * Create preview for release trends
  */
-function createPreviewReleaseTrends(data) {
-    const container = document.getElementById('preview-release-trends');
+function createPreviewReleaseTrends(data, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-release-trends') || targetWindow.querySelector('[id*="preview-release-trends"]');
     if (!container || !data || !data.data || data.data.length === 0) return;
     
     container.innerHTML = '';
@@ -1673,13 +1863,22 @@ function createPreviewReleaseTrends(data) {
     const peakYear = data.peak_year && data.peak_year.year ? data.peak_year.year : 'N/A';
     summary.textContent = `Peak year: ${peakYear}`;
     container.appendChild(summary);
+    
+    // Show the preview card now that data is ready
+    const previewCard = container.closest('.preview-card');
+    if (previewCard) {
+        previewCard.classList.remove('loading-hidden');
+        // Check if we should show the Music Analytics fieldset
+        checkAndShowMusicAnalyticsFieldset(targetWindow);
+    }
 }
 
 /**
  * Create preview for seasonal variety
  */
-function createPreviewSeasonal(data) {
-    const container = document.getElementById('preview-seasonal');
+function createPreviewSeasonal(data, targetWindow = null) {
+    if (!targetWindow) targetWindow = document;
+    const container = targetWindow.querySelector('#preview-seasonal') || targetWindow.querySelector('[id*="preview-seasonal"]');
     if (!container || !data || !data.seasonal_data) return;
     
     container.innerHTML = '';
@@ -1713,4 +1912,12 @@ function createPreviewSeasonal(data) {
         item.appendChild(text);
         container.appendChild(item);
     });
+    
+    // Show the preview card now that data is ready
+    const previewCard = container.closest('.preview-card');
+    if (previewCard) {
+        previewCard.classList.remove('loading-hidden');
+        // Check if we should show the Music Analytics fieldset
+        checkAndShowMusicAnalyticsFieldset(targetWindow);
+    }
 }
