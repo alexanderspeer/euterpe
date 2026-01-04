@@ -77,6 +77,21 @@ function setupWindowControls(window) {
             if (e.target.closest('.title-bar-controls')) return;
             startDrag(window, e);
         });
+        
+        // Double-click title bar to maximize/restore
+        titleBar.addEventListener('dblclick', (e) => {
+            if (e.target.closest('.title-bar-controls')) return;
+            e.stopPropagation();
+            // Toggle maximize/restore
+            if (window.dataset.maximized === 'true') {
+                restoreWindow(window);
+            } else {
+                // Don't maximize the sidebar window
+                if (!window.classList.contains('sidebar-window')) {
+                    maximizeWindow(window);
+                }
+            }
+        });
     }
     
     // Setup close button
@@ -797,7 +812,13 @@ async function loadTopTracks(targetWindow = null) {
             return;
         }
 
+        // Store track data for sorting
+        container.dataset.trackData = JSON.stringify(data);
+        container.dataset.sortColumn = '';
+        container.dataset.sortDirection = '';
+        
         createTrackList(data, container);
+        setupTrackListSorting(container);
     } catch (error) {
         console.error('Error loading top tracks:', error);
         showError(tbody, 'Failed to load top tracks');
@@ -921,7 +942,13 @@ async function loadHiddenGems(targetWindow = null) {
             return;
         }
 
+        // Store track data for sorting
+        container.dataset.trackData = JSON.stringify(data);
+        container.dataset.sortColumn = '';
+        container.dataset.sortDirection = '';
+        
         createHiddenGemsList(data, container);
+        setupHiddenGemsSorting(container);
     } catch (error) {
         console.error('Error loading hidden gems:', error);
         showError(tbody, 'Failed to load hidden gems');
@@ -1104,6 +1131,123 @@ function createCardGrid(cards, container) {
 }
 
 /**
+ * Setup sorting for track list table
+ */
+function setupTrackListSorting(container) {
+    // Check if already set up
+    if (container.dataset.sortingSetup === 'true') return;
+    
+    const table = container.closest('table');
+    if (!table) return;
+    
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    
+    const headers = thead.querySelectorAll('th');
+    
+    // Add click handlers to sortable columns (Title, Popularity, Duration)
+    headers.forEach((header, index) => {
+        // Skip rank (#) and image columns
+        if (index === 0 || index === 1) return;
+        
+        // Make headers clickable
+        header.style.cursor = 'pointer';
+        header.style.userSelect = 'none';
+        
+        header.addEventListener('click', () => {
+            let columnName = '';
+            if (index === 2) columnName = 'title';
+            else if (index === 3) columnName = 'popularity';
+            else if (index === 4) columnName = 'duration';
+            
+            if (columnName) {
+                sortTrackList(container, columnName);
+            }
+        });
+    });
+    
+    // Mark as set up
+    container.dataset.sortingSetup = 'true';
+}
+
+/**
+ * Sort track list by column
+ */
+function sortTrackList(container, columnName) {
+    const trackDataStr = container.dataset.trackData;
+    if (!trackDataStr) return;
+    
+    const tracks = JSON.parse(trackDataStr);
+    const currentSortColumn = container.dataset.sortColumn;
+    const currentSortDirection = container.dataset.sortDirection;
+    
+    // Determine sort direction: if clicking same column, toggle; otherwise default to ascending
+    let sortDirection = 'asc';
+    if (currentSortColumn === columnName && currentSortDirection === 'asc') {
+        sortDirection = 'desc';
+    }
+    
+    // Sort tracks
+    const sortedTracks = [...tracks].sort((a, b) => {
+        let aVal, bVal;
+        
+        switch (columnName) {
+            case 'title':
+                aVal = (a.song_name || '').toLowerCase();
+                bVal = (b.song_name || '').toLowerCase();
+                break;
+            case 'popularity':
+                aVal = a.popularity || 0;
+                bVal = b.popularity || 0;
+                break;
+            case 'duration':
+                aVal = a.duration_ms || 0;
+                bVal = b.duration_ms || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Update sort state
+    container.dataset.sortColumn = columnName;
+    container.dataset.sortDirection = sortDirection;
+    
+    // Re-render table with sorted data
+    createTrackList(sortedTracks, container);
+    
+    // Update header indicators
+    updateSortIndicators(container, columnName, sortDirection);
+}
+
+/**
+ * Update sort indicators in table headers
+ */
+function updateSortIndicators(container, columnName, sortDirection) {
+    const table = container.closest('table');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th');
+    
+    headers.forEach((header, index) => {
+        // Remove existing indicators
+        header.textContent = header.textContent.replace(/ [↑↓]$/, '');
+        
+        // Add indicator to active column
+        if ((index === 2 && columnName === 'title') ||
+            (index === 3 && columnName === 'popularity') ||
+            (index === 4 && columnName === 'duration')) {
+            const indicator = sortDirection === 'asc' ? ' ↑' : ' ↓';
+            header.textContent = header.textContent + indicator;
+        }
+    });
+}
+
+/**
  * Create track list
  */
 function createTrackList(tracks, container) {
@@ -1136,6 +1280,13 @@ function createTrackList(tracks, container) {
         `;
         tbody.appendChild(row);
     });
+    
+    // Re-setup sorting after re-rendering (to preserve sort state)
+    const sortColumn = container.dataset.sortColumn;
+    const sortDirection = container.dataset.sortDirection;
+    if (sortColumn) {
+        updateSortIndicators(container, sortColumn, sortDirection);
+    }
 }
 
 /**
@@ -1268,6 +1419,124 @@ function createReleaseTrendsChart(data, container) {
 }
 
 /**
+ * Setup sorting for hidden gems table
+ */
+function setupHiddenGemsSorting(container) {
+    // Check if already set up
+    if (container.dataset.sortingSetup === 'true') return;
+    
+    const table = container.closest('table');
+    if (!table) return;
+    
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    
+    const headers = thead.querySelectorAll('th');
+    
+    // Add click handlers to sortable columns (Title, Rarity, Duration)
+    headers.forEach((header, index) => {
+        // Skip rank (#) and image columns
+        if (index === 0 || index === 1) return;
+        
+        // Make headers clickable
+        header.style.cursor = 'pointer';
+        header.style.userSelect = 'none';
+        
+        header.addEventListener('click', () => {
+            let columnName = '';
+            if (index === 2) columnName = 'title';
+            else if (index === 3) columnName = 'rarity'; // Rarity is based on popularity
+            else if (index === 4) columnName = 'duration';
+            
+            if (columnName) {
+                sortHiddenGemsList(container, columnName);
+            }
+        });
+    });
+    
+    // Mark as set up
+    container.dataset.sortingSetup = 'true';
+}
+
+/**
+ * Sort hidden gems list by column
+ */
+function sortHiddenGemsList(container, columnName) {
+    const trackDataStr = container.dataset.trackData;
+    if (!trackDataStr) return;
+    
+    const tracks = JSON.parse(trackDataStr);
+    const currentSortColumn = container.dataset.sortColumn;
+    const currentSortDirection = container.dataset.sortDirection;
+    
+    // Determine sort direction: if clicking same column, toggle; otherwise default to ascending
+    let sortDirection = 'asc';
+    if (currentSortColumn === columnName && currentSortDirection === 'asc') {
+        sortDirection = 'desc';
+    }
+    
+    // Sort tracks
+    const sortedTracks = [...tracks].sort((a, b) => {
+        let aVal, bVal;
+        
+        switch (columnName) {
+            case 'title':
+                aVal = (a.song_name || '').toLowerCase();
+                bVal = (b.song_name || '').toLowerCase();
+                break;
+            case 'rarity':
+                // Rarity is based on popularity (lower = rarer)
+                aVal = a.popularity || 0;
+                bVal = b.popularity || 0;
+                break;
+            case 'duration':
+                aVal = a.duration_ms || 0;
+                bVal = b.duration_ms || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Update sort state
+    container.dataset.sortColumn = columnName;
+    container.dataset.sortDirection = sortDirection;
+    
+    // Re-render table with sorted data
+    createHiddenGemsList(sortedTracks, container);
+    
+    // Update header indicators
+    updateHiddenGemsSortIndicators(container, columnName, sortDirection);
+}
+
+/**
+ * Update sort indicators in hidden gems table headers
+ */
+function updateHiddenGemsSortIndicators(container, columnName, sortDirection) {
+    const table = container.closest('table');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th');
+    
+    headers.forEach((header, index) => {
+        // Remove existing indicators
+        header.textContent = header.textContent.replace(/ [↑↓]$/, '');
+        
+        // Add indicator to active column
+        if ((index === 2 && columnName === 'title') ||
+            (index === 3 && columnName === 'rarity') ||
+            (index === 4 && columnName === 'duration')) {
+            const indicator = sortDirection === 'asc' ? ' ↑' : ' ↓';
+            header.textContent = header.textContent + indicator;
+        }
+    });
+}
+
+/**
  * Create hidden gems list
  */
 function createHiddenGemsList(tracks, container) {
@@ -1320,6 +1589,13 @@ function createHiddenGemsList(tracks, container) {
         `;
         tbody.appendChild(row);
     });
+    
+    // Re-setup sorting after re-rendering (to preserve sort state)
+    const sortColumn = container.dataset.sortColumn;
+    const sortDirection = container.dataset.sortDirection;
+    if (sortColumn) {
+        updateHiddenGemsSortIndicators(container, sortColumn, sortDirection);
+    }
 }
 
 /**
@@ -1361,7 +1637,6 @@ function createSeasonalVarietyChart(data, container) {
     `;
     
     const seasonOrder = ['Winter', 'Spring', 'Summer', 'Fall'];
-    const seasonEmojis = { 'Winter': '❄️', 'Spring': '🌸', 'Summer': '☀️', 'Fall': '🍂' };
     const seasonColors = { 
         'Winter': '#3B82F6', 
         'Spring': '#10B981', 
@@ -1388,7 +1663,6 @@ function createSeasonalVarietyChart(data, container) {
             margin-bottom: 16px;
         `;
         seasonHeader.innerHTML = `
-            <span style="font-size: 24px;">${seasonEmojis[season]}</span>
             <h4 style="margin: 0; font-size: 13px; font-weight: bold;">${season}</h4>
         `;
         seasonCard.appendChild(seasonHeader);
