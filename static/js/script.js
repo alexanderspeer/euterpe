@@ -14,6 +14,7 @@ let windowCounter = 0;
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
     initializeWindowControls();
+    setupHelpIcon();
 });
 
 /**
@@ -28,6 +29,162 @@ function initializeApp() {
     
     // Initial update of navigation button states (overview should be bold since main window exists)
     updateNavigationButtonStates();
+}
+
+/**
+ * Setup help icon click handler
+ */
+function setupHelpIcon() {
+    const helpIcon = document.getElementById('help-icon');
+    if (helpIcon) {
+        helpIcon.addEventListener('click', () => {
+            openHelpWindow();
+        });
+    }
+}
+
+/**
+ * Open help/info window
+ */
+function openHelpWindow() {
+    // Check if window already exists
+    const existingWindow = document.querySelector('.window[data-section="help"]');
+    if (existingWindow) {
+        bringToFront(existingWindow);
+        return;
+    }
+    
+    // Create new window
+    const newWindow = document.createElement('div');
+    newWindow.className = 'window';
+    newWindow.dataset.section = 'help';
+    newWindow.dataset.windowId = `window-${++windowCounter}`;
+    
+    // Calculate position (diagonal offset from existing windows)
+    const existingWindows = document.querySelectorAll('.window:not(.sidebar-window)');
+    const windowCount = existingWindows.length;
+    const diagonalOffset = 40;
+    
+    newWindow.style.width = '600px';
+    newWindow.style.height = '500px';
+    newWindow.style.top = `${100 + (diagonalOffset * windowCount)}px`;
+    newWindow.style.left = `${350 + (diagonalOffset * windowCount)}px`;
+    
+    // Create window structure
+    newWindow.innerHTML = `
+        <div class="title-bar">
+            <div class="title-bar-text">About Euterpe</div>
+            <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="resize-handle n"></div>
+        <div class="resize-handle s"></div>
+        <div class="resize-handle e"></div>
+        <div class="resize-handle w"></div>
+        <div class="resize-handle ne"></div>
+        <div class="resize-handle nw"></div>
+        <div class="resize-handle se"></div>
+        <div class="resize-handle sw"></div>
+        <div class="window-body"></div>
+    `;
+    
+    // Add content to window body
+    const windowBody = newWindow.querySelector('.window-body');
+    windowBody.innerHTML = `
+        <div style="padding: 8px;">
+            <div style="font-weight: bold; font-size: 13px; margin-bottom: 16px;">Euterpe - Music Analytics Dashboard</div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">About</div>
+                <div style="font-size: 11px; line-height: 1.6; margin-bottom: 16px;">
+                    Euterpe is a music analytics dashboard that provides deep insights into your Spotify listening habits. 
+                    Named after Euterpe, the Greek muse of music, this dashboard transforms your Spotify data into an 
+                    interactive experience that helps you understand your musical journey.
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">Features</div>
+                <div style="font-size: 11px; line-height: 1.6;">
+                    <div style="margin-bottom: 8px;"><strong>Music Library Analytics:</strong></div>
+                    <div style="margin-left: 16px; margin-bottom: 12px;">
+                        - Top Tracks: Your most-played songs with popularity ratings<br>
+                        - Top Artists: Favorite artists with genre information<br>
+                        - Top Albums: Most-listened albums with cover art<br>
+                        - Hidden Gems: Discover your rarest tracks<br>
+                        - Top Playlists: Playlists containing the most of your top songs
+                    </div>
+                    
+                    <div style="margin-bottom: 8px;"><strong>Advanced Analytics:</strong></div>
+                    <div style="margin-left: 16px; margin-bottom: 12px;">
+                        - Timeless Artists: Artists that consistently appear across different time periods<br>
+                        - Trending Down: Artists with declining interest over time<br>
+                        - Release Trends: Analysis of your music by release year<br>
+                        - Seasonal Variety: Genre diversity across different seasons
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">How It Works</div>
+                <div style="font-size: 11px; line-height: 1.6; margin-bottom: 8px;">
+                    Euterpe connects to your Spotify account through the Spotify Web API to fetch your listening data. 
+                    All data is processed in real-time and no information is stored on our servers. The dashboard 
+                    analyzes your top tracks, artists, and albums across different time ranges to provide insights 
+                    into your musical preferences.
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">Time Ranges</div>
+                <div style="font-size: 11px; line-height: 1.6;">
+                    - <strong>4 Weeks:</strong> Your recent listening habits<br>
+                    - <strong>6 Months:</strong> Your current musical preferences<br>
+                    - <strong>1 Year:</strong> Your overall musical identity
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">Window Controls</div>
+                <div style="font-size: 11px; line-height: 1.6;">
+                    - <strong>Drag:</strong> Click and drag the title bar to move windows<br>
+                    - <strong>Resize:</strong> Drag the edges or corners to resize windows<br>
+                    - <strong>Maximize:</strong> Click the maximize button or double-click the title bar<br>
+                    - <strong>Restore:</strong> Click the minimize button when maximized<br>
+                    - <strong>Close:</strong> Click the X button to close windows
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 11px; margin-bottom: 8px;">Sorting</div>
+                <div style="font-size: 11px; line-height: 1.6;">
+                    Click on column headers in the Top Tracks and Hidden Gems tables to sort by that column. 
+                    Click again to reverse the sort order. Sortable columns include Title, Popularity/Rarity, and Duration.
+                </div>
+            </div>
+
+            <div style="font-size: 10px; color: #666; margin-top: 24px; padding-top: 16px; border-top: 1px solid #c0c0c0;">
+                Euterpe uses the Spotify Web API to provide these insights. All data is fetched in real-time and 
+                no information is stored on our servers. Your privacy is important to us.
+            </div>
+        </div>
+    `;
+    
+    // Add to DOM
+    const appContainer = document.querySelector('.app-container');
+    appContainer.appendChild(newWindow);
+    
+    // Setup controls
+    setupWindowControls(newWindow);
+    
+    // Track window
+    openWindows.set(newWindow.dataset.windowId, newWindow);
+    
+    // Bring to front
+    bringToFront(newWindow);
 }
 
 /**

@@ -31,6 +31,25 @@
             box-sizing: border-box;
         }
 
+        .help-icon {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            z-index: 2000;
+            transition: transform 0.1s ease;
+        }
+
+        .help-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .help-icon:active {
+            transform: scale(0.95);
+        }
+
         .window {
             position: absolute;
             min-width: 200px;
@@ -511,6 +530,7 @@
     </style>
 </head>
 <body>
+    <img src="/paperclip.webp" alt="Help" class="help-icon" id="help-icon" title="Click for help">
     <div class="app-container">
         <!-- Sidebar Navigation Window -->
         <div class="window sidebar-window">
