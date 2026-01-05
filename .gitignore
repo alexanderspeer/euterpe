@@ -165,3 +165,11 @@ node_modules/
 # Backup files
 *.bak
 *.backup
+
+# Spotify token cache (MUST NOT be used in production)
+.spotify_cache
+.cache-*
+
+# Local development database
+*.db
+euterpe_local.db
