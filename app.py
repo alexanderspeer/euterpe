@@ -528,7 +528,7 @@ def require_owner_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         client = get_owner_spotify_client()
-    if not client:
+        if not client:
             return jsonify({
                 'error': 'Site not connected to Spotify. Please contact the site owner.'
             }), 503
