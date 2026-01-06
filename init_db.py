@@ -59,7 +59,7 @@ def init_database():
             
             # Step 3: Create tables in euterpe schema
             print("\nStep 3: Creating tables in 'euterpe' schema...")
-            from models import db, EUTERPE_SCHEMA
+            from models import db, EUTERPE_SCHEMA, OwnerToken
             
             # Import app to get the Flask app context
             from app import app
@@ -68,6 +68,8 @@ def init_database():
                 # Create all tables (they will be created in euterpe schema due to __table_args__)
                 db.create_all()
                 print("✓ Tables created in 'euterpe' schema")
+                print(f"  Note: OwnerToken table is for single-owner mode")
+                print(f"  Note: User/UserToken tables kept for database safety (unused)")
             
             # Step 4: Verify tables are in correct schema
             print("\nStep 4: Verifying table placement...")
