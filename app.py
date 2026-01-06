@@ -455,18 +455,18 @@ def callback():
             </html>
         """, display_name=owner_token.display_name)
         
-        except Exception as e:
+    except Exception as e:
         print(f"Error in OAuth callback: {e}")
         return render_template_string("""
         <!DOCTYPE html>
-            <html>
+        <html>
         <head><title>Authorization Error</title></head>
         <body style="font-family: Arial; text-align: center; padding: 50px;">
             <h1>Authorization Error</h1>
             <p>{{ error }}</p>
             <p><a href="/admin" style="padding: 10px 20px; background: #1DB954; color: white; text-decoration: none; border-radius: 5px;">Back to Admin</a></p>
-                </body>
-            </html>
+        </body>
+        </html>
         """, error=str(e))
 
 
