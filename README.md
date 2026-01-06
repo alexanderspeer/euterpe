@@ -1,326 +1,171 @@
 # Euterpe Dashboard
 
-A beautiful, Spotify-inspired music analytics dashboard that provides deep insights into your listening habits and musical journey. Named after Euterpe, the Greek muse of music, this dashboard transforms your Spotify data into an elegant, interactive experience.
+A Spotify-inspired music analytics dashboard. Named after Euterpe (the Greek muse of music), it shows you stuff about your listening habits that Spotify doesn't.
 
-![Dashboard Preview](https://img.shields.io/badge/Status-Live-brightgreen) ![Python](https://img.shields.io/badge/Python-3.8+-blue) ![Flask](https://img.shields.io/badge/Flask-2.0+-red) ![Spotify API](https://img.shields.io/badge/Spotify-Web%20API-1ed760)
+**Note:** Right now, this app only displays my Spotify data. I originally built it so anyone could connect their own Spotify account and see their analytics. Unfortunately, Spotify changed their API policies a while back - individual developers can't use the Spotify API on deployed apps anymore (you need a company account now). So I had to pivot: instead of letting other people see their own data, the app now just shows my listening stats to anyone who visits. If you want to see your own data, you'll need to run it locally with your own API credentials.
 
-## Features
+## What it does
 
-### Music Library Analytics
-- **Top Tracks**: Your most-played songs with popularity ratings and album artwork
-- **Top Artists**: Favorite artists with genre information and profile photos
-- **Top Albums**: Most-listened albums with cover art and artist details
-- **Hidden Gems**: Discover your rarest tracks (lowest popularity scores)
-- **Top Playlists**: Playlists containing the most of your top songs
+Basically, it connects to your Spotify account and shows you:
+- Your top tracks, artists, and albums (with album art)
+- Hidden gems - tracks with really low popularity scores that you love
+- Which playlists have the most of your top songs
+- Artists that stand the test of time vs ones you're falling out of love with
+- How your music taste changes by season
+- Release year trends
 
-### Advanced Analytics
-- **Timeless Artists**: Artists that consistently appear across different time periods
-- **Trending Down**: Artists with declining interest over time
-- **Release Trends**: Visual analysis of your music by release year
-- **Seasonal Variety**: Genre diversity across different seasons
+The UI looks like Spotify because I wanted it to feel familiar. Dark theme, smooth transitions, that whole thing.
 
-### Beautiful UI
-- **Spotify-Inspired Design**: Dark theme with authentic Spotify color palette
-- **Responsive Layout**: Works perfectly on desktop, tablet, and mobile
-- **Interactive Charts**: Native HTML/CSS/JS charts (no heavy dependencies)
-- **Real Album Artwork**: High-quality images from Spotify's CDN
-- **Smooth Animations**: Hover effects and transitions for premium feel
+## Getting Started
 
-### Performance Optimized
-- **Fast Loading**: Native charts instead of heavy Matplotlib
-- **Efficient API Calls**: Parallel data fetching for quick load times
-- **Smart Caching**: Optimized data retrieval patterns
-- **Lightweight**: Minimal dependencies for fast deployment
+### What you'll need
+- Python 3.8+ (probably have this already)
+- A Spotify Developer account (free, takes 5 minutes)
+- Git (to clone this repo)
 
-## Quick Start
+### Setup
 
-### Prerequisites
-- Python 3.8 or higher
-- Spotify Developer Account
-- Git
-
-### 1. Clone the Repository
+1. Clone it:
 ```bash
 git clone https://github.com/yourusername/euterpe_dashboard.git
 cd euterpe_dashboard
 ```
 
-### 2. Set Up Virtual Environment
+2. Set up a virtual environment (trust me, you want this):
 ```bash
-# Create virtual environment
 python -m venv venv
 
-# Activate virtual environment
-# On Windows:
+# Windows:
 venv\Scripts\activate
-# On macOS/Linux:
+# Mac/Linux:
 source venv/bin/activate
 ```
 
-### 3. Install Dependencies
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Spotify API
+4. Get Spotify API credentials:
+   - Go to https://developer.spotify.com/dashboard
+   - Create a new app (call it whatever you want)
+   - Set the redirect URI to `http://localhost:5000`
+   - Copy your Client ID and Client Secret
 
-#### Create Spotify App
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Click "Create App"
-3. Fill in app details:
-   - **App Name**: Euterpe Dashboard
-   - **App Description**: Music analytics dashboard
-   - **Redirect URI**: `http://localhost:5000`
-4. Note down your **Client ID** and **Client Secret**
-
-#### Set Up Environment Variables
-Create a `.env` file in the root directory:
+5. Create a `.env` file in the root directory:
 ```env
-CLIENT_ID=your_spotify_client_id_here
-CLIENT_SECRET=your_spotify_client_secret_here
+CLIENT_ID=your_client_id_here
+CLIENT_SECRET=your_client_secret_here
 REDIRECT_URI=http://localhost:5000
 SCOPE=user-top-read user-read-recently-played user-library-read playlist-read-private playlist-read-collaborative
 ```
 
-### 5. Run the Application
+6. Run it:
 ```bash
 python app.py
 ```
 
-### 6. Access the Dashboard
-Open your browser and navigate to: `http://localhost:5000`
+7. Open http://localhost:5000 in your browser
 
 ## Project Structure
 
 ```
-euterpe_dashboard/
-├── app.py                 # Flask application and API routes
-├── logic.py              # Spotify API integration and data processing
-├── requirements.txt      # Python dependencies
-├── .env                  # Environment variables (not tracked)
-├── .gitignore           # Git ignore rules
-├── favicon.png          # Dashboard favicon
+euterpe/
+├── app.py              # Main Flask app and routes
+├── logic.py            # All the Spotify API stuff
+├── models.py           # Database models
+├── encryption.py       # For storing tokens securely
+├── init_db.py          # Sets up the database
+├── requirements.txt    # Python packages
 ├── templates/
-│   └── index.html       # Main dashboard template
+│   └── index.html      # The dashboard page
 └── static/
-    └── js/
-        └── script.js    # Frontend JavaScript functionality
+    ├── js/
+    │   └── script.js   # Frontend logic
+    └── css/
+        └── 98.css      # Styles (Windows 98 inspired)
 ```
 
 ## API Endpoints
 
-### Music Data
-- `GET /top_songs?time_range={short_term|medium_term|long_term}` - Top tracks
-- `GET /top_artists?time_range={short_term|medium_term|long_term}` - Top artists
-- `GET /top_albums?time_range={short_term|medium_term|long_term}` - Top albums
-- `GET /hidden_gems?time_range={short_term|medium_term|long_term}` - Rarest tracks
-- `GET /top_playlists` - Playlists with most top songs
+The app has a few endpoints if you want to use them directly:
 
-### Analytics
-- `GET /artists_standing_test_of_time` - Consistent favorite artists
-- `GET /artists_falling_off` - Artists with declining interest
-- `GET /release_year_trends?time_range={short_term|medium_term|long_term}` - Release year analysis
-- `GET /music_variety_by_season?time_range={short_term|medium_term|long_term}` - Seasonal genre variety
+- `/top_songs?time_range=short_term|medium_term|long_term`
+- `/top_artists?time_range=short_term|medium_term|long_term`
+- `/top_albums?time_range=short_term|medium_term|long_term`
+- `/hidden_gems?time_range=short_term|medium_term|long_term`
+- `/top_playlists`
+- `/artists_standing_test_of_time`
+- `/artists_falling_off`
+- `/release_year_trends?time_range=...`
+- `/music_variety_by_season?time_range=...`
 
-### Static Files
-- `GET /favicon.png` - Dashboard favicon
-- `GET /static/js/script.js` - Frontend JavaScript
+Time ranges:
+- `short_term` = last 4 weeks
+- `medium_term` = last 6 months
+- `long_term` = last year or so
 
-## Design System
+## Privacy & Security
 
-### Color Palette
-```css
---spotify-black: #000000
---spotify-dark-gray: #121212
---spotify-darker-gray: #181818
---spotify-light-gray: #282828
---spotify-white: #ffffff
---spotify-light-text: #b3b3b3
---spotify-green: #3b82f6        /* Custom blue accent */
---spotify-green-hover: #60a5fa  /* Hover state */
-```
-
-### Typography
-- **Primary Font**: Circular (Spotify's font family)
-- **Fallback**: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif
-- **Weights**: 400 (regular), 500 (medium), 600 (semibold), 700 (bold)
-
-### Components
-- **Cards**: Rounded corners (12px), subtle shadows, hover animations
-- **Lists**: Clean typography, proper spacing, image thumbnails
-- **Charts**: Native HTML/CSS bars with smooth transitions
-- **Navigation**: Sidebar with active states and smooth transitions
-
-## Security & Privacy
-
-### Data Handling
-- **No Data Storage**: All data is fetched in real-time from Spotify
-- **Local Processing**: Analytics computed client-side when possible
-- **Secure Credentials**: API keys stored in environment variables
-- **HTTPS Ready**: Configured for secure deployment
-
-### Spotify Permissions
-The app requests minimal necessary permissions:
-- `user-top-read`: Access to your top tracks and artists
-- `user-read-recently-played`: Recent listening history
-- `user-library-read`: Your saved music library
-- `playlist-read-private`: Access to your private playlists
-- `playlist-read-collaborative`: Collaborative playlists
+- We don't store any of your data. Everything is fetched from Spotify in real-time.
+- Your API credentials live in the `.env` file (which isn't tracked by git).
+- The app only asks for read-only permissions - it can't modify your playlists or anything like that.
 
 ## Deployment
 
-### Local Development
-```bash
-python app.py
-```
+For local development, just run `python app.py`.
 
-### Production Deployment
+For production, you'll probably want to use Gunicorn:
 
-#### Using Gunicorn
 ```bash
 pip install gunicorn
 gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
 
-#### Using Docker
-```dockerfile
-FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
-```
+Or use the Procfile if you're deploying to Heroku or similar.
 
-#### Environment Variables for Production
-```env
-FLASK_ENV=production
-CLIENT_ID=your_production_client_id
-CLIENT_SECRET=your_production_client_secret
-REDIRECT_URI=https://yourdomain.com
-```
+Make sure to update your `.env` with production values and set `REDIRECT_URI` to your actual domain.
 
 ## Development
 
-### Adding New Features
+If you want to add features:
+- Backend stuff goes in `logic.py`
+- Routes go in `app.py`
+- Frontend stuff is in `templates/index.html` and `static/js/script.js`
 
-#### 1. Backend (Python/Flask)
-- Add new functions in `logic.py`
-- Create corresponding routes in `app.py`
-- Update imports as needed
+I tried to keep the code somewhat organized, but it's not perfect. Feel free to refactor if you want.
 
-#### 2. Frontend (JavaScript)
-- Add new functions in `static/js/script.js`
-- Update navigation in `templates/index.html`
-- Add corresponding CSS styles
+## Troubleshooting
 
-#### 3. Testing
-```bash
-# Run the application
-python app.py
+**"Unauthorized" error**
+- Double check your `.env` file has the right credentials
+- Make sure your Spotify app's redirect URI matches what's in `.env`
+- If your app is in development mode, you might need to add yourself to the allowed users list in Spotify's dashboard
 
-# Test API endpoints
-curl http://localhost:5000/top_songs?time_range=medium_term
-```
+**No data showing**
+- You might not have enough listening history yet. Try the different time ranges.
+- Check the browser console for JavaScript errors.
+- Make sure you've actually listened to music on Spotify (sounds obvious but you never know)
 
-### Code Style
-- **Python**: Follow PEP 8 guidelines
-- **JavaScript**: Use modern ES6+ syntax
-- **CSS**: Use CSS custom properties for theming
-- **HTML**: Semantic markup with proper accessibility
+**Favicon not loading**
+- It's probably cached. Try hard refresh (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows)
 
-## Data Insights
+## Things I might add later
 
-### What You Can Discover
-- **Musical Evolution**: How your taste changes over time
-- **Genre Diversity**: Seasonal patterns in your listening
-- **Hidden Preferences**: Rare tracks that define your unique taste
-- **Artist Loyalty**: Which artists stand the test of time
-- **Discovery Patterns**: How you find new music
-
-### Time Ranges
-- **Short Term (4 weeks)**: Recent listening habits
-- **Medium Term (6 months)**: Current musical preferences
-- **Long Term (1 year)**: Overall musical identity
-
-## Contributing
-
-### How to Contribute
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Setup
-```bash
-# Clone your fork
-git clone https://github.com/yourusername/euterpe_dashboard.git
-
-# Install development dependencies
-pip install -r requirements.txt
-
-# Run in development mode
-export FLASK_ENV=development
-python app.py
-```
+- Export your data as CSV/JSON
+- Compare stats with friends
+- Generate playlists based on your analytics
+- More chart types
+- Custom themes
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License. Do whatever you want with it.
 
-## Acknowledgments
+## Credits
 
-- **Spotify**: For providing the comprehensive Web API
-- **Spotipy**: Python library for Spotify Web API
-- **Flask**: Lightweight web framework
-- **Euterpe**: The Greek muse of music who inspired this project
-
-## Support
-
-### Common Issues
-
-#### "Unauthorized User API key"
-- Verify your Spotify app credentials in `.env`
-- Check that redirect URI matches your Spotify app settings
-- Ensure your Spotify app is not in development mode restrictions
-
-#### "No data showing"
-- Make sure you have sufficient listening history on Spotify
-- Try different time ranges (short_term, medium_term, long_term)
-- Check browser console for JavaScript errors
-
-#### "Favicon not loading"
-- Ensure `favicon.png` is in the root directory
-- Check that the Flask route is properly configured
-- Clear browser cache
-
-### Getting Help
-- **Issues**: Open a GitHub issue for bugs or feature requests
-- **Discussions**: Use GitHub Discussions for questions
-- **Documentation**: Check this README and inline code comments
-
-## Roadmap
-
-### Planned Features
-- [ ] **Export Data**: Download your analytics as CSV/JSON
-- [ ] **Social Features**: Compare with friends (with permission)
-- [ ] **Advanced Filters**: Filter by genre, year, popularity
-- [ ] **Playlist Generation**: Create playlists based on insights
-- [ ] **Mobile App**: Native mobile application
-- [ ] **Real-time Updates**: Live listening activity
-- [ ] **Custom Themes**: Multiple color schemes
-- [ ] **Data Visualization**: More chart types and interactive graphs
-
-### Version History
-- **v1.0.0**: Initial release with core analytics
-- **v1.1.0**: Added Hidden Gems and enhanced UI
-- **v1.2.0**: Performance optimizations and native charts
-- **v1.3.0**: Enhanced overview dashboard with previews
+Built with Flask, Spotipy, and too much coffee. Thanks to Spotify for having a decent API and not being too annoying about rate limits.
 
 ---
 
-**Made with love and music by music lovers, for music lovers.**
-
-*Discover the story of your musical journey with Euterpe Dashboard.*
+Made by someone who spends way too much time thinking about music.
