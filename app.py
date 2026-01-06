@@ -516,6 +516,12 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, ''), 'favicon.png', mimetype='image/png')
 
 
+@app.route('/paperclip.webp')
+def paperclip():
+    """Serve paperclip image"""
+    return send_from_directory(os.path.join(app.root_path, ''), 'paperclip.webp', mimetype='image/webp')
+
+
 # ============================================================================
 # PUBLIC API ROUTES (USE OWNER TOKEN)
 # ============================================================================
